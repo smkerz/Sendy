@@ -1,15 +1,37 @@
-import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState, useCallback, useRef, Platform } from 'react';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, AppState } from 'react-native';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Notifications natives (iOS/Android uniquement)
+let Notifications = null;
+if (Platform.OS !== 'web') {
+  Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
+
+// AsyncStorage pour iOS/Android, localStorage pour le web
+const Storage = {
+  getItem: async (key) => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.getItem(key);
+  },
+  setItem: async (key, value) => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage.setItem(key, value);
+  },
+};
 
 const WORDS = [
   { ru: 'Яда', fr: 'poison' },
@@ -46,31 +68,46 @@ const WORDS = [
 
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
+const STORAGE_ENABLED = 'sendy_enabled';
+const STORAGE_INTERVAL = 'sendy_interval';
 
 export default function App() {
   const [enabled, setEnabled] = useState(false);
-  const [interval, setInterval] = useState(30);
+  const [interval, setIntervalVal] = useState(30);
   const [customInterval, setCustomInterval] = useState('');
   const [status, setStatus] = useState('Desactive');
   const [nextWord, setNextWord] = useState(null);
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
+  const webTimerRef = useRef(null);
 
-  // Charger les mots connus au lancement
+  // Charger les donnees sauvegardees au lancement
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
+    Storage.getItem(STORAGE_KEY).then((data) => {
       if (data) setKnownWords(JSON.parse(data));
+    });
+    Storage.getItem(STORAGE_ENABLED).then((data) => {
+      if (data === 'true') setEnabled(true);
+    });
+    Storage.getItem(STORAGE_INTERVAL).then((data) => {
+      if (data) setIntervalVal(parseInt(data, 10));
     });
   }, []);
 
-  // Sauvegarder quand la liste change
+  // Sauvegarder les mots connus
   useEffect(() => {
-    if (knownWords.length > 0) {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(knownWords));
-    }
+    Storage.setItem(STORAGE_KEY, JSON.stringify(knownWords));
   }, [knownWords]);
 
-  // Mots actifs = tous les mots sauf ceux qu'on connait
+  // Sauvegarder l'etat ON/OFF et l'intervalle
+  useEffect(() => {
+    Storage.setItem(STORAGE_ENABLED, enabled.toString());
+  }, [enabled]);
+
+  useEffect(() => {
+    Storage.setItem(STORAGE_INTERVAL, interval.toString());
+  }, [interval]);
+
   const activeWords = WORDS.filter((w) => !knownWords.includes(w.ru));
 
   const markAsKnown = (ruWord) => {
@@ -83,13 +120,16 @@ export default function App() {
     setKnownWords(knownWords.filter((w) => w !== ruWord));
   };
 
-  const scheduleNotifications = useCallback(async (minutes, words) => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+  const getRandomWord = useCallback((words) => {
+    if (words.length === 0) return null;
+    return words[Math.floor(Math.random() * words.length)];
+  }, []);
 
-    if (words.length === 0) {
-      setStatus('Tous les mots sont connus !');
-      return;
-    }
+  // --- Notifications natives (iOS/Android) ---
+  const scheduleNativeNotifications = useCallback(async (minutes, words) => {
+    if (!Notifications || words.length === 0) return;
+
+    await Notifications.cancelAllScheduledNotificationsAsync();
 
     const maxNotifs = Math.min(Math.floor(1440 / minutes), 64);
     for (let i = 1; i <= maxNotifs; i++) {
@@ -107,42 +147,92 @@ export default function App() {
         },
       });
     }
-
-    const first = words[Math.floor(Math.random() * words.length)];
-    setNextWord(first);
-    setStatus(`${maxNotifs} notifications / ${minutes} min (${words.length} mots actifs)`);
   }, []);
 
-  const stopNotifications = useCallback(async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    setStatus('Desactive');
+  // --- Notifications web (navigateur) ---
+  const sendWebNotification = useCallback((word) => {
+    if (Platform.OS !== 'web') return;
+    if ('Notification' in window && window.Notification.permission === 'granted') {
+      new window.Notification(word.ru, { body: word.fr });
+    }
+    setNextWord(word);
   }, []);
 
+  const startWebTimer = useCallback((minutes, words) => {
+    if (webTimerRef.current) clearInterval(webTimerRef.current);
+    if (words.length === 0) return;
+
+    webTimerRef.current = setInterval(() => {
+      const word = words[Math.floor(Math.random() * words.length)];
+      sendWebNotification(word);
+    }, minutes * 60 * 1000);
+  }, [sendWebNotification]);
+
+  const stopWebTimer = useCallback(() => {
+    if (webTimerRef.current) {
+      clearInterval(webTimerRef.current);
+      webTimerRef.current = null;
+    }
+  }, []);
+
+  // Demander la permission
   useEffect(() => {
-    Notifications.requestPermissionsAsync();
+    if (Platform.OS === 'web') {
+      if ('Notification' in window && window.Notification.permission === 'default') {
+        window.Notification.requestPermission();
+      }
+    } else if (Notifications) {
+      Notifications.requestPermissionsAsync();
+    }
   }, []);
 
-  // Replanifier quand on change ON/OFF, intervalle, ou mots actifs
+  // Reagir au ON/OFF, intervalle, mots actifs
   useEffect(() => {
     if (enabled) {
-      scheduleNotifications(interval, activeWords);
+      if (activeWords.length === 0) {
+        setStatus('Tous les mots sont connus !');
+        return;
+      }
+
+      if (Platform.OS === 'web') {
+        startWebTimer(interval, activeWords);
+        setStatus(`Actif — toutes les ${interval} min (${activeWords.length} mots)`);
+      } else {
+        scheduleNativeNotifications(interval, activeWords);
+        const maxNotifs = Math.min(Math.floor(1440 / interval), 64);
+        setStatus(`${maxNotifs} notifications / ${interval} min (${activeWords.length} mots)`);
+      }
+
+      const first = getRandomWord(activeWords);
+      if (first) setNextWord(first);
     } else {
-      stopNotifications();
+      if (Platform.OS === 'web') {
+        stopWebTimer();
+      } else if (Notifications) {
+        Notifications.cancelAllScheduledNotificationsAsync();
+      }
+      setStatus('Desactive');
     }
+
+    return () => {
+      if (Platform.OS === 'web') stopWebTimer();
+    };
   }, [enabled, interval, knownWords.length]);
 
-  // Quand une notif arrive et l'app est ouverte
+  // Ecouter les notifications natives
   useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+    if (!Notifications) return;
+
+    const sub1 = Notifications.addNotificationReceivedListener((notification) => {
       const { title, body } = notification.request.content;
       setNextWord({ ru: title, fr: body });
     });
-    return () => subscription.remove();
-  }, []);
 
-  // Quand on clique sur la notification pour ouvrir l'app
-  useEffect(() => {
-    // Verifier si l'app a ete ouverte via une notification
+    const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
+      const { title, body } = response.notification.request.content;
+      setNextWord({ ru: title, fr: body });
+    });
+
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
         const { title, body } = response.notification.request.content;
@@ -150,22 +240,21 @@ export default function App() {
       }
     });
 
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const { title, body } = response.notification.request.content;
-      setNextWord({ ru: title, fr: body });
-    });
-    return () => subscription.remove();
+    return () => {
+      sub1.remove();
+      sub2.remove();
+    };
   }, []);
 
   const selectInterval = (minutes) => {
-    setInterval(minutes);
+    setIntervalVal(minutes);
     setCustomInterval('');
   };
 
   const applyCustomInterval = () => {
     const val = parseInt(customInterval, 10);
     if (val > 0) {
-      setInterval(val);
+      setIntervalVal(val);
     }
   };
 
@@ -219,7 +308,7 @@ export default function App() {
 
       <Text style={styles.status}>{status}</Text>
 
-      {/* Carte du mot avec bouton "Je connais" */}
+      {/* Carte du mot */}
       {nextWord && (
         <View style={styles.card}>
           <Text style={styles.russian}>{nextWord.ru}</Text>
