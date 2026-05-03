@@ -304,6 +304,7 @@ export default function App() {
   };
 
   return (
+    <View style={styles.outer}>
     <View style={styles.container}>
       <Text style={styles.title}>Sendy</Text>
       <Text style={styles.subtitle}>Apprends le russe</Text>
@@ -439,10 +440,16 @@ export default function App() {
         )}
       </ScrollView>
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outer: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
@@ -450,7 +457,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     maxWidth: 600,
     width: '100%',
-    alignSelf: 'center',
   },
   title: {
     fontSize: 42,
