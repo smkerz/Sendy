@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf /c/Users/smk20/GitHub/Sendy/docs)",
+      "Bash(mv /c/Users/smk20/GitHub/Sendy/dist /c/Users/smk20/GitHub/Sendy/docs)",
+      "Bash(touch /c/Users/smk20/GitHub/Sendy/docs/.nojekyll)"
+    ]
+  }
+}
