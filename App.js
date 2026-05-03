@@ -409,7 +409,7 @@ export default function App() {
       </View>
 
       {/* Liste des mots */}
-      <ScrollView style={styles.list}>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={true}>
         {!showKnown ? (
           activeWords.map((word, index) => (
             <View key={index} style={styles.wordRow}>
@@ -446,8 +446,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
-    paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingHorizontal: 16,
   },
   title: {
     fontSize: 42,
@@ -612,35 +612,49 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
   },
+  listContent: {
+    paddingBottom: 40,
+  },
   wordRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    marginBottom: 8,
   },
   listItem: {
-    fontSize: 16,
-    color: '#cccccc',
+    fontSize: 18,
+    color: '#ffffff',
     flex: 1,
+    fontWeight: '500',
   },
   listItemKnown: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: '#aaaaaa',
     flex: 1,
   },
   checkBtn: {
     color: '#16c79a',
     fontWeight: 'bold',
-    fontSize: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    fontSize: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(22, 199, 154, 0.15)',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   undoBtn: {
     color: '#e94560',
     fontWeight: 'bold',
-    fontSize: 13,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(233, 69, 96, 0.15)',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   emptyText: {
     color: '#666',
