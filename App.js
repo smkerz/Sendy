@@ -1,6 +1,12 @@
 import { useEffect, useState, useCallback, useRef, Platform } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, AppState } from 'react-native';
 
+// Text-to-speech
+let Speech = null;
+if (Platform.OS !== 'web') {
+  Speech = require('expo-speech');
+}
+
 // Notifications natives (iOS/Android uniquement)
 let Notifications = null;
 if (Platform.OS !== 'web') {
@@ -64,12 +70,18 @@ const WORDS = [
   { ru: 'Корабль', fr: 'navire' },
   { ru: 'Разочаровываться', fr: 'decevoir' },
   { ru: 'Долг', fr: 'dette' },
+  { ru: 'Кузнец', fr: 'forgeron' },
+  { ru: 'Близко', fr: 'proche' },
+  { ru: 'Гнев', fr: 'colere' },
+  { ru: 'Крыса', fr: 'rat' },
+  { ru: 'Настроить', fr: 'configurer' },
 ];
 
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
 const STORAGE_INTERVAL = 'sendy_interval';
+const STORAGE_VOICE = 'sendy_voice';
 
 export default function App() {
   const [enabled, setEnabled] = useState(false);
@@ -79,7 +91,27 @@ export default function App() {
   const [nextWord, setNextWord] = useState(null);
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const webTimerRef = useRef(null);
+
+  const speakWord = useCallback((word) => {
+    if (!voiceEnabled || !word) return;
+    if (Platform.OS === 'web') {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u1 = new window.SpeechSynthesisUtterance(word.ru);
+        u1.lang = 'ru-RU';
+        const u2 = new window.SpeechSynthesisUtterance(word.fr);
+        u2.lang = 'fr-FR';
+        window.speechSynthesis.speak(u1);
+        window.speechSynthesis.speak(u2);
+      }
+    } else if (Speech) {
+      Speech.stop();
+      Speech.speak(word.ru, { language: 'ru-RU' });
+      Speech.speak(word.fr, { language: 'fr-FR' });
+    }
+  }, [voiceEnabled]);
 
   // Charger les donnees sauvegardees au lancement
   useEffect(() => {
@@ -92,7 +124,14 @@ export default function App() {
     Storage.getItem(STORAGE_INTERVAL).then((data) => {
       if (data) setIntervalVal(parseInt(data, 10));
     });
+    Storage.getItem(STORAGE_VOICE).then((data) => {
+      if (data === 'false') setVoiceEnabled(false);
+    });
   }, []);
+
+  useEffect(() => {
+    Storage.setItem(STORAGE_VOICE, voiceEnabled.toString());
+  }, [voiceEnabled]);
 
   // Sauvegarder les mots connus
   useEffect(() => {
@@ -225,18 +264,24 @@ export default function App() {
 
     const sub1 = Notifications.addNotificationReceivedListener((notification) => {
       const { title, body } = notification.request.content;
-      setNextWord({ ru: title, fr: body });
+      const w = { ru: title, fr: body };
+      setNextWord(w);
+      speakWord(w);
     });
 
     const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
       const { title, body } = response.notification.request.content;
-      setNextWord({ ru: title, fr: body });
+      const w = { ru: title, fr: body };
+      setNextWord(w);
+      speakWord(w);
     });
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
         const { title, body } = response.notification.request.content;
-        setNextWord({ ru: title, fr: body });
+        const w = { ru: title, fr: body };
+        setNextWord(w);
+        speakWord(w);
       }
     });
 
@@ -244,7 +289,7 @@ export default function App() {
       sub1.remove();
       sub2.remove();
     };
-  }, []);
+  }, [speakWord]);
 
   const selectInterval = (minutes) => {
     setIntervalVal(minutes);
@@ -271,6 +316,17 @@ export default function App() {
           onValueChange={setEnabled}
           trackColor={{ false: '#555', true: '#e94560' }}
           thumbColor={enabled ? '#fff' : '#ccc'}
+        />
+      </View>
+
+      {/* Voix ON / OFF */}
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>Voix</Text>
+        <Switch
+          value={voiceEnabled}
+          onValueChange={setVoiceEnabled}
+          trackColor={{ false: '#555', true: '#16c79a' }}
+          thumbColor={voiceEnabled ? '#fff' : '#ccc'}
         />
       </View>
 
@@ -313,14 +369,22 @@ export default function App() {
         <View style={styles.card}>
           <Text style={styles.russian}>{nextWord.ru}</Text>
           <Text style={styles.french}>{nextWord.fr}</Text>
-          {!knownWords.includes(nextWord.ru) && (
+          <View style={styles.cardBtns}>
             <TouchableOpacity
-              style={styles.knownBtn}
-              onPress={() => markAsKnown(nextWord.ru)}
+              style={styles.listenBtn}
+              onPress={() => speakWord(nextWord)}
             >
-              <Text style={styles.knownBtnText}>Je connais ce mot</Text>
+              <Text style={styles.listenBtnText}>Ecouter</Text>
             </TouchableOpacity>
-          )}
+            {!knownWords.includes(nextWord.ru) && (
+              <TouchableOpacity
+                style={styles.knownBtn}
+                onPress={() => markAsKnown(nextWord.ru)}
+              >
+                <Text style={styles.knownBtnText}>Je connais</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
 
@@ -493,6 +557,10 @@ const styles = StyleSheet.create({
     color: '#16c79a',
     marginBottom: 12,
   },
+  cardBtns: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   knownBtn: {
     backgroundColor: '#16c79a',
     borderRadius: 8,
@@ -501,6 +569,17 @@ const styles = StyleSheet.create({
   },
   knownBtnText: {
     color: '#1a1a2e',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  listenBtn: {
+    backgroundColor: '#e94560',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  listenBtnText: {
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 14,
   },
