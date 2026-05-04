@@ -77,6 +77,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
+const VERSION = '1.5.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -306,7 +307,7 @@ export default function App() {
   return (
     <View style={styles.outer}>
     <View style={styles.container}>
-      <Text style={styles.title}>Sendy</Text>
+      <Text style={styles.title}>Sendy <Text style={styles.version}>v{VERSION}</Text></Text>
       <Text style={styles.subtitle}>Apprends le russe</Text>
 
       {/* ON / OFF */}
@@ -463,6 +464,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#e94560',
     textAlign: 'center',
+  },
+  version: {
+    fontSize: 16,
+    fontWeight: 'normal',
+    color: '#888',
   },
   subtitle: {
     fontSize: 16,
