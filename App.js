@@ -77,7 +77,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -93,6 +93,7 @@ export default function App() {
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const webTimerRef = useRef(null);
 
   const speakWord = useCallback((word) => {
@@ -307,88 +308,115 @@ export default function App() {
   return (
     <View style={styles.outer}>
     <View style={styles.container}>
+      {/* Header avec titre */}
       <Text style={styles.title}>Sendy <Text style={styles.version}>v{VERSION}</Text></Text>
-      <Text style={styles.subtitle}>Apprends le russe</Text>
 
-      {/* ON / OFF */}
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Notifications</Text>
-        <Switch
-          value={enabled}
-          onValueChange={setEnabled}
-          trackColor={{ false: '#555', true: '#e94560' }}
-          thumbColor={enabled ? '#fff' : '#ccc'}
-        />
-      </View>
-
-      {/* Voix ON / OFF */}
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Voix</Text>
-        <Switch
-          value={voiceEnabled}
-          onValueChange={setVoiceEnabled}
-          trackColor={{ false: '#555', true: '#16c79a' }}
-          thumbColor={voiceEnabled ? '#fff' : '#ccc'}
-        />
-      </View>
-
-      {/* Frequence */}
-      <Text style={styles.sectionTitle}>
-        Frequence : toutes les {interval} min
-      </Text>
-      <View style={styles.presetRow}>
-        {PRESETS.map((min) => (
-          <TouchableOpacity
-            key={min}
-            style={[styles.presetBtn, interval === min && styles.presetBtnActive]}
-            onPress={() => selectInterval(min)}
-          >
-            <Text style={[styles.presetText, interval === min && styles.presetTextActive]}>
-              {min < 60 ? `${min}m` : `${min / 60}h`}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.customRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Autre (min)"
-          placeholderTextColor="#666"
-          keyboardType="numeric"
-          value={customInterval}
-          onChangeText={setCustomInterval}
-        />
-        <TouchableOpacity style={styles.applyBtn} onPress={applyCustomInterval}>
-          <Text style={styles.applyText}>OK</Text>
+      {/* Onglets principaux */}
+      <View style={styles.mainTabRow}>
+        <TouchableOpacity
+          style={[styles.mainTab, !settingsOpen && styles.mainTabActive]}
+          onPress={() => setSettingsOpen(false)}
+        >
+          <Text style={[styles.mainTabText, !settingsOpen && styles.mainTabTextActive]}>
+            Mots
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.mainTab, settingsOpen && styles.mainTabActive]}
+          onPress={() => setSettingsOpen(true)}
+        >
+          <Text style={[styles.mainTabText, settingsOpen && styles.mainTabTextActive]}>
+            Reglages
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.status}>{status}</Text>
-
-      {/* Carte du mot */}
-      {nextWord && (
-        <View style={styles.card}>
-          <Text style={styles.russian}>{nextWord.ru}</Text>
-          <Text style={styles.french}>{nextWord.fr}</Text>
-          <View style={styles.cardBtns}>
-            <TouchableOpacity
-              style={styles.listenBtn}
-              onPress={() => speakWord(nextWord)}
-            >
-              <Text style={styles.listenBtnText}>Ecouter</Text>
-            </TouchableOpacity>
-            {!knownWords.includes(nextWord.ru) && (
-              <TouchableOpacity
-                style={styles.knownBtn}
-                onPress={() => markAsKnown(nextWord.ru)}
-              >
-                <Text style={styles.knownBtnText}>Je connais</Text>
-              </TouchableOpacity>
-            )}
+      {/* Onglet REGLAGES */}
+      {settingsOpen && (
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Notifications</Text>
+            <Switch
+              value={enabled}
+              onValueChange={setEnabled}
+              trackColor={{ false: '#555', true: '#e94560' }}
+              thumbColor={enabled ? '#fff' : '#ccc'}
+            />
           </View>
-        </View>
+
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Voix</Text>
+            <Switch
+              value={voiceEnabled}
+              onValueChange={setVoiceEnabled}
+              trackColor={{ false: '#555', true: '#16c79a' }}
+              thumbColor={voiceEnabled ? '#fff' : '#ccc'}
+            />
+          </View>
+
+          <Text style={styles.sectionTitle}>
+            Frequence : toutes les {interval} min
+          </Text>
+          <View style={styles.presetRow}>
+            {PRESETS.map((min) => (
+              <TouchableOpacity
+                key={min}
+                style={[styles.presetBtn, interval === min && styles.presetBtnActive]}
+                onPress={() => selectInterval(min)}
+              >
+                <Text style={[styles.presetText, interval === min && styles.presetTextActive]}>
+                  {min < 60 ? `${min}m` : `${min / 60}h`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.customRow}>
+            <TextInput
+              style={styles.input}
+              placeholder="Autre (min)"
+              placeholderTextColor="#666"
+              keyboardType="numeric"
+              value={customInterval}
+              onChangeText={setCustomInterval}
+            />
+            <TouchableOpacity style={styles.applyBtn} onPress={applyCustomInterval}>
+              <Text style={styles.applyText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.status}>{status}</Text>
+
+          {/* Carte du dernier mot recu */}
+          {nextWord && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Dernier mot</Text>
+              <Text style={styles.russian}>{nextWord.ru}</Text>
+              <Text style={styles.french}>{nextWord.fr}</Text>
+              <View style={styles.cardBtns}>
+                <TouchableOpacity
+                  style={styles.listenBtn}
+                  onPress={() => speakWord(nextWord)}
+                >
+                  <Text style={styles.listenBtnText}>Ecouter</Text>
+                </TouchableOpacity>
+                {!knownWords.includes(nextWord.ru) && (
+                  <TouchableOpacity
+                    style={styles.knownBtn}
+                    onPress={() => markAsKnown(nextWord.ru)}
+                  >
+                    <Text style={styles.knownBtnText}>Je connais</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+        </ScrollView>
       )}
+
+      {/* Onglet MOTS */}
+      {!settingsOpen && (
+        <>
 
       {/* Onglets */}
       <View style={styles.tabRow}>
@@ -440,6 +468,8 @@ export default function App() {
           )
         )}
       </ScrollView>
+        </>
+      )}
     </View>
     </View>
   );
@@ -454,27 +484,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
-    paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingHorizontal: 16,
     maxWidth: 600,
     width: '100%',
   },
   title: {
-    fontSize: 42,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#e94560',
     textAlign: 'center',
+    marginBottom: 12,
   },
   version: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'normal',
     color: '#888',
   },
-  subtitle: {
-    fontSize: 16,
+  mainTabRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    padding: 4,
+  },
+  mainTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  mainTabActive: {
+    backgroundColor: '#e94560',
+  },
+  mainTabText: {
     color: '#888',
-    textAlign: 'center',
-    marginBottom: 20,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  mainTabTextActive: {
+    color: '#ffffff',
   },
   switchRow: {
     flexDirection: 'row',
