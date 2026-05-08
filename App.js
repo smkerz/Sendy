@@ -77,7 +77,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -93,8 +93,38 @@ export default function App() {
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('words'); // 'words' | 'quiz' | 'settings'
+  const [quizWord, setQuizWord] = useState(null);
+  const [quizOptions, setQuizOptions] = useState([]);
+  const [quizFeedback, setQuizFeedback] = useState(null); // null | 'correct' | 'wrong'
+  const [quizScore, setQuizScore] = useState({ correct: 0, total: 0 });
   const webTimerRef = useRef(null);
+
+  // Generer une question de quiz
+  const generateQuiz = useCallback(() => {
+    if (WORDS.length < 5) return;
+    const correctIdx = Math.floor(Math.random() * WORDS.length);
+    const correct = WORDS[correctIdx];
+    const others = WORDS.filter((_, i) => i !== correctIdx);
+    const shuffled = [...others].sort(() => Math.random() - 0.5).slice(0, 4);
+    const options = [...shuffled, correct].sort(() => Math.random() - 0.5);
+    setQuizWord(correct);
+    setQuizOptions(options);
+    setQuizFeedback(null);
+  }, []);
+
+  const answerQuiz = (option) => {
+    if (quizFeedback) return; // deja repondu
+    const isCorrect = option.ru === quizWord.ru;
+    setQuizFeedback(isCorrect ? 'correct' : 'wrong');
+    setQuizScore((s) => ({ correct: s.correct + (isCorrect ? 1 : 0), total: s.total + 1 }));
+    if (voiceEnabled) speakWord(quizWord);
+  };
+
+  // Generer la premiere question quand on arrive sur l'onglet
+  useEffect(() => {
+    if (activeTab === 'quiz' && !quizWord) generateQuiz();
+  }, [activeTab, quizWord, generateQuiz]);
 
   const speakWord = useCallback((word) => {
     if (!voiceEnabled || !word) return;
@@ -314,25 +344,91 @@ export default function App() {
       {/* Onglets principaux */}
       <View style={styles.mainTabRow}>
         <TouchableOpacity
-          style={[styles.mainTab, !settingsOpen && styles.mainTabActive]}
-          onPress={() => setSettingsOpen(false)}
+          style={[styles.mainTab, activeTab === 'words' && styles.mainTabActive]}
+          onPress={() => setActiveTab('words')}
         >
-          <Text style={[styles.mainTabText, !settingsOpen && styles.mainTabTextActive]}>
+          <Text style={[styles.mainTabText, activeTab === 'words' && styles.mainTabTextActive]}>
             Mots
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.mainTab, settingsOpen && styles.mainTabActive]}
-          onPress={() => setSettingsOpen(true)}
+          style={[styles.mainTab, activeTab === 'quiz' && styles.mainTabActive]}
+          onPress={() => setActiveTab('quiz')}
         >
-          <Text style={[styles.mainTabText, settingsOpen && styles.mainTabTextActive]}>
+          <Text style={[styles.mainTabText, activeTab === 'quiz' && styles.mainTabTextActive]}>
+            Quiz
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.mainTab, activeTab === 'settings' && styles.mainTabActive]}
+          onPress={() => setActiveTab('settings')}
+        >
+          <Text style={[styles.mainTabText, activeTab === 'settings' && styles.mainTabTextActive]}>
             Reglages
           </Text>
         </TouchableOpacity>
       </View>
 
+      {/* Onglet QUIZ */}
+      {activeTab === 'quiz' && quizWord && (
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <View style={styles.quizScoreRow}>
+            <Text style={styles.quizScoreText}>
+              Score : {quizScore.correct} / {quizScore.total}
+            </Text>
+            {quizScore.total > 0 && (
+              <Text style={styles.quizScorePct}>
+                {Math.round((quizScore.correct / quizScore.total) * 100)} %
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.quizCard}>
+            <Text style={styles.quizQuestion}>Que veut dire :</Text>
+            <Text style={styles.quizWord}>{quizWord.ru}</Text>
+            <TouchableOpacity style={styles.iconBtnSmall} onPress={() => speakWord(quizWord)}>
+              <Text style={styles.iconBtnText}>♪ Ecouter</Text>
+            </TouchableOpacity>
+          </View>
+
+          {quizOptions.map((option, index) => {
+            const isCorrect = option.ru === quizWord.ru;
+            const showCorrect = quizFeedback && isCorrect;
+            const showWrong = quizFeedback === 'wrong' && quizFeedback !== null;
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.quizOption,
+                  showCorrect && styles.quizOptionCorrect,
+                  quizFeedback === 'wrong' && !isCorrect && styles.quizOptionWrong,
+                ]}
+                onPress={() => answerQuiz(option)}
+                disabled={!!quizFeedback}
+              >
+                <Text style={styles.quizOptionText}>{option.fr}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {quizFeedback && (
+            <View style={styles.quizFeedback}>
+              <Text style={[
+                styles.quizFeedbackText,
+                quizFeedback === 'correct' ? styles.quizCorrect : styles.quizWrong
+              ]}>
+                {quizFeedback === 'correct' ? '✓ Correct !' : `✗ La reponse etait : ${quizWord.fr}`}
+              </Text>
+              <TouchableOpacity style={styles.quizNextBtn} onPress={generateQuiz}>
+                <Text style={styles.quizNextBtnText}>Mot suivant →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
       {/* Onglet REGLAGES */}
-      {settingsOpen && (
+      {activeTab === 'settings' && (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Notifications</Text>
@@ -415,7 +511,7 @@ export default function App() {
       )}
 
       {/* Onglet MOTS */}
-      {!settingsOpen && (
+      {activeTab === 'words' && (
         <>
 
       {/* Onglets */}
@@ -725,5 +821,105 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 20,
+  },
+  quizScoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  quizScoreText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  quizScorePct: {
+    color: '#16c79a',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  quizCard: {
+    backgroundColor: '#16213e',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e94560',
+  },
+  quizQuestion: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
+  },
+  quizWord: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  iconBtnSmall: {
+    backgroundColor: '#e94560',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  iconBtnText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  quizOption: {
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#333',
+  },
+  quizOptionCorrect: {
+    backgroundColor: 'rgba(22, 199, 154, 0.3)',
+    borderColor: '#16c79a',
+  },
+  quizOptionWrong: {
+    backgroundColor: 'rgba(233, 69, 96, 0.2)',
+    borderColor: '#e94560',
+    opacity: 0.6,
+  },
+  quizOptionText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  quizFeedback: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  quizFeedbackText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  quizCorrect: {
+    color: '#16c79a',
+  },
+  quizWrong: {
+    color: '#e94560',
+  },
+  quizNextBtn: {
+    backgroundColor: '#e94560',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  quizNextBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
