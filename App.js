@@ -87,7 +87,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.9.0';
+const VERSION = '1.9.1';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -208,42 +208,56 @@ export default function App() {
 
     // --- iOS / Android natif ---
     if (!SpeechRecognitionModule) {
-      alert('Module de reconnaissance vocale non disponible sur cet appareil.');
+      alert('Module non charge. Reinstalle la derniere version (v' + VERSION + ') de l app.');
       return;
     }
-    const { ExpoSpeechRecognitionModule } = SpeechRecognitionModule;
+
+    const ESR = SpeechRecognitionModule.ExpoSpeechRecognitionModule || SpeechRecognitionModule.default || SpeechRecognitionModule;
+    const addListener = SpeechRecognitionModule.addSpeechRecognitionListener || (ESR && ESR.addListener && ESR.addListener.bind(ESR));
+
+    if (!ESR || typeof ESR.start !== 'function') {
+      alert('API speech recognition introuvable. Cle disponibles : ' + Object.keys(SpeechRecognitionModule).join(', '));
+      return;
+    }
+    if (typeof addListener !== 'function') {
+      alert('addListener introuvable. Cles : ' + Object.keys(SpeechRecognitionModule).join(', '));
+      return;
+    }
+
     try {
-      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perm.granted) {
-        alert('Permission micro/reconnaissance refusee. Active-la dans Reglages > Sendy.');
+      let perm = { granted: true };
+      if (typeof ESR.requestPermissionsAsync === 'function') {
+        perm = await ESR.requestPermissionsAsync();
+      }
+      if (perm && perm.granted === false) {
+        alert('Permission refusee. Active micro + dictee dans Reglages > Sendy.');
         return;
       }
 
-      // Listeners
-      const subResult = SpeechRecognitionModule.addSpeechRecognitionListener('result', (event) => {
-        if (event.isFinal) {
+      const subs = [];
+      const cleanup = () => {
+        subs.forEach((s) => { try { s.remove(); } catch (e) {} });
+        subs.length = 0;
+        setListening(null);
+      };
+
+      subs.push(addListener('result', (event) => {
+        if (event && event.isFinal) {
           const transcripts = (event.results || []).map((r) => r.transcript);
           handleResults(lang, transcripts);
         }
-      });
-      const subEnd = SpeechRecognitionModule.addSpeechRecognitionListener('end', () => {
-        setListening(null);
-        subResult.remove();
-        subEnd.remove();
-        subError.remove();
-      });
-      const subError = SpeechRecognitionModule.addSpeechRecognitionListener('error', (event) => {
-        setListening(null);
-        if (event.error !== 'no-speech') {
-          alert('Erreur reconnaissance : ' + (event.message || event.error));
+      }));
+      subs.push(addListener('end', cleanup));
+      subs.push(addListener('error', (event) => {
+        cleanup();
+        const code = event && (event.error || event.code);
+        if (code !== 'no-speech' && code !== 'aborted') {
+          alert('Erreur : ' + (event && (event.message || event.error) || 'inconnue'));
         }
-        subResult.remove();
-        subEnd.remove();
-        subError.remove();
-      });
+      }));
 
       setListening(lang);
-      ExpoSpeechRecognitionModule.start({
+      ESR.start({
         lang: lang === 'ru' ? 'ru-RU' : 'fr-FR',
         interimResults: false,
         maxAlternatives: 5,
@@ -253,7 +267,7 @@ export default function App() {
       });
     } catch (e) {
       setListening(null);
-      alert('Erreur : ' + e.message);
+      alert('Exception : ' + (e && e.message ? e.message : String(e)));
     }
   };
 
