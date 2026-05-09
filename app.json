@@ -29,7 +29,14 @@
           "sounds": []
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Sendy a besoin du microphone pour ecouter les mots que tu dictes.",
+          "speechRecognitionPermission": "Sendy a besoin de la reconnaissance vocale pour transcrire les mots que tu dictes."
+        }
+      ]
     ],
     "extra": {
       "eas": {

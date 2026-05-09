@@ -7,6 +7,16 @@ if (Platform.OS !== 'web') {
   Speech = require('expo-speech');
 }
 
+// Speech recognition (native)
+let SpeechRecognitionModule = null;
+if (Platform.OS !== 'web') {
+  try {
+    SpeechRecognitionModule = require('expo-speech-recognition');
+  } catch (e) {
+    SpeechRecognitionModule = null;
+  }
+}
+
 // Notifications natives (iOS/Android uniquement)
 let Notifications = null;
 if (Platform.OS !== 'web') {
@@ -77,7 +87,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -137,58 +147,110 @@ export default function App() {
     if (activeTab === 'quiz' && !quizWord) generateQuiz();
   }, [activeTab, quizWord, generateQuiz]);
 
-  // --- Reconnaissance vocale (Web Speech API uniquement) ---
-  const startListening = (lang) => {
-    if (Platform.OS !== 'web') {
-      alert('La dictee vocale fonctionne uniquement sur la version web. Tape le mot directement.');
-      return;
+  // --- Reconnaissance vocale (web + natif) ---
+  const handleResults = (lang, alternatives) => {
+    const unique = [...new Set(alternatives.filter(Boolean))];
+    if (lang === 'ru') {
+      setRuSuggestions(unique);
+      if (unique[0]) setNewRu(unique[0]);
+    } else {
+      setFrSuggestions(unique);
+      if (unique[0]) setNewFr(unique[0]);
     }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Ton navigateur ne supporte pas la reconnaissance vocale. Essaye Safari ou Chrome.");
-      return;
-    }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = lang === 'ru' ? 'ru-RU' : 'fr-FR';
-    recognition.maxAlternatives = 5;
-    recognition.continuous = false;
-    recognition.interimResults = false;
+  };
 
-    setListening(lang);
+  const startListening = async (lang) => {
     if (lang === 'ru') setRuSuggestions([]);
     if (lang === 'fr') setFrSuggestions([]);
 
-    recognition.onresult = (event) => {
-      const result = event.results[0];
-      const alternatives = [];
-      for (let i = 0; i < result.length; i++) {
-        alternatives.push(result[i].transcript);
+    if (Platform.OS === 'web') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Ton navigateur ne supporte pas la reconnaissance vocale. Essaye Safari ou Chrome.");
+        return;
       }
-      const unique = [...new Set(alternatives)];
-      if (lang === 'ru') {
-        setRuSuggestions(unique);
-        if (unique[0]) setNewRu(unique[0]);
-      } else {
-        setFrSuggestions(unique);
-        if (unique[0]) setNewFr(unique[0]);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
       }
-    };
-    recognition.onerror = (event) => {
-      setListening(null);
-      if (event.error !== 'no-speech') {
-        alert('Erreur reconnaissance : ' + event.error);
-      }
-    };
-    recognition.onend = () => {
-      setListening(null);
-    };
+      const recognition = new SpeechRecognition();
+      recognition.lang = lang === 'ru' ? 'ru-RU' : 'fr-FR';
+      recognition.maxAlternatives = 5;
+      recognition.continuous = false;
+      recognition.interimResults = false;
 
-    recognitionRef.current = recognition;
+      setListening(lang);
+
+      recognition.onresult = (event) => {
+        const result = event.results[0];
+        const alternatives = [];
+        for (let i = 0; i < result.length; i++) {
+          alternatives.push(result[i].transcript);
+        }
+        handleResults(lang, alternatives);
+      };
+      recognition.onerror = (event) => {
+        setListening(null);
+        if (event.error !== 'no-speech') {
+          alert('Erreur reconnaissance : ' + event.error);
+        }
+      };
+      recognition.onend = () => setListening(null);
+
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch (e) {
+        setListening(null);
+        alert('Erreur : ' + e.message);
+      }
+      return;
+    }
+
+    // --- iOS / Android natif ---
+    if (!SpeechRecognitionModule) {
+      alert('Module de reconnaissance vocale non disponible sur cet appareil.');
+      return;
+    }
+    const { ExpoSpeechRecognitionModule } = SpeechRecognitionModule;
     try {
-      recognition.start();
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) {
+        alert('Permission micro/reconnaissance refusee. Active-la dans Reglages > Sendy.');
+        return;
+      }
+
+      // Listeners
+      const subResult = SpeechRecognitionModule.addSpeechRecognitionListener('result', (event) => {
+        if (event.isFinal) {
+          const transcripts = (event.results || []).map((r) => r.transcript);
+          handleResults(lang, transcripts);
+        }
+      });
+      const subEnd = SpeechRecognitionModule.addSpeechRecognitionListener('end', () => {
+        setListening(null);
+        subResult.remove();
+        subEnd.remove();
+        subError.remove();
+      });
+      const subError = SpeechRecognitionModule.addSpeechRecognitionListener('error', (event) => {
+        setListening(null);
+        if (event.error !== 'no-speech') {
+          alert('Erreur reconnaissance : ' + (event.message || event.error));
+        }
+        subResult.remove();
+        subEnd.remove();
+        subError.remove();
+      });
+
+      setListening(lang);
+      ExpoSpeechRecognitionModule.start({
+        lang: lang === 'ru' ? 'ru-RU' : 'fr-FR',
+        interimResults: false,
+        maxAlternatives: 5,
+        continuous: false,
+        requiresOnDeviceRecognition: false,
+        addsPunctuation: false,
+      });
     } catch (e) {
       setListening(null);
       alert('Erreur : ' + e.message);
