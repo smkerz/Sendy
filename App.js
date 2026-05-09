@@ -77,12 +77,13 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
 const STORAGE_INTERVAL = 'sendy_interval';
 const STORAGE_VOICE = 'sendy_voice';
+const STORAGE_USER_WORDS = 'sendy_user_words';
 
 export default function App() {
   const [enabled, setEnabled] = useState(false);
@@ -93,25 +94,35 @@ export default function App() {
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [activeTab, setActiveTab] = useState('words'); // 'words' | 'quiz' | 'settings'
+  const [activeTab, setActiveTab] = useState('words'); // 'words' | 'quiz' | 'add' | 'settings'
   const [quizWord, setQuizWord] = useState(null);
   const [quizOptions, setQuizOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null); // null | 'correct' | 'wrong'
+  const [quizFeedback, setQuizFeedback] = useState(null);
   const [quizScore, setQuizScore] = useState({ correct: 0, total: 0 });
+  const [userWords, setUserWords] = useState([]);
+  const [newRu, setNewRu] = useState('');
+  const [newFr, setNewFr] = useState('');
+  const [ruSuggestions, setRuSuggestions] = useState([]);
+  const [frSuggestions, setFrSuggestions] = useState([]);
+  const [listening, setListening] = useState(null); // null | 'ru' | 'fr'
   const webTimerRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // Liste combinee : mots de base + mots utilisateur
+  const ALL_WORDS = [...WORDS, ...userWords];
 
   // Generer une question de quiz
   const generateQuiz = useCallback(() => {
-    if (WORDS.length < 5) return;
-    const correctIdx = Math.floor(Math.random() * WORDS.length);
-    const correct = WORDS[correctIdx];
-    const others = WORDS.filter((_, i) => i !== correctIdx);
+    if (ALL_WORDS.length < 5) return;
+    const correctIdx = Math.floor(Math.random() * ALL_WORDS.length);
+    const correct = ALL_WORDS[correctIdx];
+    const others = ALL_WORDS.filter((_, i) => i !== correctIdx);
     const shuffled = [...others].sort(() => Math.random() - 0.5).slice(0, 4);
     const options = [...shuffled, correct].sort(() => Math.random() - 0.5);
     setQuizWord(correct);
     setQuizOptions(options);
     setQuizFeedback(null);
-  }, []);
+  }, [ALL_WORDS]);
 
   const answerQuiz = (option) => {
     if (quizFeedback) return; // deja repondu
@@ -125,6 +136,86 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'quiz' && !quizWord) generateQuiz();
   }, [activeTab, quizWord, generateQuiz]);
+
+  // --- Reconnaissance vocale (Web Speech API uniquement) ---
+  const startListening = (lang) => {
+    if (Platform.OS !== 'web') {
+      alert('La dictee vocale fonctionne uniquement sur la version web. Tape le mot directement.');
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Ton navigateur ne supporte pas la reconnaissance vocale. Essaye Safari ou Chrome.");
+      return;
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === 'ru' ? 'ru-RU' : 'fr-FR';
+    recognition.maxAlternatives = 5;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    setListening(lang);
+    if (lang === 'ru') setRuSuggestions([]);
+    if (lang === 'fr') setFrSuggestions([]);
+
+    recognition.onresult = (event) => {
+      const result = event.results[0];
+      const alternatives = [];
+      for (let i = 0; i < result.length; i++) {
+        alternatives.push(result[i].transcript);
+      }
+      const unique = [...new Set(alternatives)];
+      if (lang === 'ru') {
+        setRuSuggestions(unique);
+        if (unique[0]) setNewRu(unique[0]);
+      } else {
+        setFrSuggestions(unique);
+        if (unique[0]) setNewFr(unique[0]);
+      }
+    };
+    recognition.onerror = (event) => {
+      setListening(null);
+      if (event.error !== 'no-speech') {
+        alert('Erreur reconnaissance : ' + event.error);
+      }
+    };
+    recognition.onend = () => {
+      setListening(null);
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (e) {
+      setListening(null);
+      alert('Erreur : ' + e.message);
+    }
+  };
+
+  const addUserWord = () => {
+    const ru = newRu.trim();
+    const fr = newFr.trim();
+    if (!ru || !fr) {
+      alert('Remplis le mot russe ET la traduction francaise');
+      return;
+    }
+    if (ALL_WORDS.some((w) => w.ru === ru)) {
+      alert('Ce mot existe deja');
+      return;
+    }
+    setUserWords([...userWords, { ru, fr }]);
+    setNewRu('');
+    setNewFr('');
+    setRuSuggestions([]);
+    setFrSuggestions([]);
+  };
+
+  const deleteUserWord = (ru) => {
+    setUserWords(userWords.filter((w) => w.ru !== ru));
+  };
 
   const speakWord = useCallback((word) => {
     if (!voiceEnabled || !word) return;
@@ -159,7 +250,14 @@ export default function App() {
     Storage.getItem(STORAGE_VOICE).then((data) => {
       if (data === 'false') setVoiceEnabled(false);
     });
+    Storage.getItem(STORAGE_USER_WORDS).then((data) => {
+      if (data) setUserWords(JSON.parse(data));
+    });
   }, []);
+
+  useEffect(() => {
+    Storage.setItem(STORAGE_USER_WORDS, JSON.stringify(userWords));
+  }, [userWords]);
 
   useEffect(() => {
     Storage.setItem(STORAGE_VOICE, voiceEnabled.toString());
@@ -179,7 +277,7 @@ export default function App() {
     Storage.setItem(STORAGE_INTERVAL, interval.toString());
   }, [interval]);
 
-  const activeWords = WORDS.filter((w) => !knownWords.includes(w.ru));
+  const activeWords = ALL_WORDS.filter((w) => !knownWords.includes(w.ru));
 
   const markAsKnown = (ruWord) => {
     if (!knownWords.includes(ruWord)) {
@@ -360,6 +458,14 @@ export default function App() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.mainTab, activeTab === 'add' && styles.mainTabActive]}
+          onPress={() => setActiveTab('add')}
+        >
+          <Text style={[styles.mainTabText, activeTab === 'add' && styles.mainTabTextActive]}>
+            Ajouter
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.mainTab, activeTab === 'settings' && styles.mainTabActive]}
           onPress={() => setActiveTab('settings')}
         >
@@ -423,6 +529,97 @@ export default function App() {
                 <Text style={styles.quizNextBtnText}>Mot suivant →</Text>
               </TouchableOpacity>
             </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Onglet AJOUTER */}
+      {activeTab === 'add' && (
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <Text style={styles.sectionTitle}>Mot russe</Text>
+          <View style={styles.addRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Ex : Книга"
+              placeholderTextColor="#666"
+              value={newRu}
+              onChangeText={setNewRu}
+            />
+            <TouchableOpacity
+              style={[styles.micBtn, listening === 'ru' && styles.micBtnActive]}
+              onPress={() => startListening('ru')}
+            >
+              <Text style={styles.micBtnText}>{listening === 'ru' ? '...' : '🎤'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {ruSuggestions.length > 1 && (
+            <View style={styles.suggestionsBox}>
+              <Text style={styles.suggestionsLabel}>Tu voulais peut-etre dire :</Text>
+              {ruSuggestions.map((sug, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.suggestion, newRu === sug && styles.suggestionActive]}
+                  onPress={() => setNewRu(sug)}
+                >
+                  <Text style={styles.suggestionText}>{sug}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.sectionTitle}>Traduction francaise</Text>
+          <View style={styles.addRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Ex : livre"
+              placeholderTextColor="#666"
+              value={newFr}
+              onChangeText={setNewFr}
+            />
+            <TouchableOpacity
+              style={[styles.micBtn, listening === 'fr' && styles.micBtnActive]}
+              onPress={() => startListening('fr')}
+            >
+              <Text style={styles.micBtnText}>{listening === 'fr' ? '...' : '🎤'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {frSuggestions.length > 1 && (
+            <View style={styles.suggestionsBox}>
+              <Text style={styles.suggestionsLabel}>Tu voulais peut-etre dire :</Text>
+              {frSuggestions.map((sug, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.suggestion, newFr === sug && styles.suggestionActive]}
+                  onPress={() => setNewFr(sug)}
+                >
+                  <Text style={styles.suggestionText}>{sug}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.addBtn} onPress={addUserWord}>
+            <Text style={styles.addBtnText}>+ Ajouter le mot</Text>
+          </TouchableOpacity>
+
+          {userWords.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
+                Mes mots ajoutes ({userWords.length})
+              </Text>
+              {userWords.map((word, idx) => (
+                <View key={idx} style={styles.wordRow}>
+                  <Text style={styles.listItem}>
+                    {word.ru} — {word.fr}
+                  </Text>
+                  <TouchableOpacity onPress={() => deleteUserWord(word.ru)}>
+                    <Text style={styles.undoBtn}>Suppr</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
           )}
         </ScrollView>
       )}
@@ -551,7 +748,7 @@ export default function App() {
           knownWords.length === 0 ? (
             <Text style={styles.emptyText}>Aucun mot connu pour l'instant</Text>
           ) : (
-            WORDS.filter((w) => knownWords.includes(w.ru)).map((word, index) => (
+            ALL_WORDS.filter((w) => knownWords.includes(w.ru)).map((word, index) => (
               <View key={index} style={styles.wordRow}>
                 <Text style={styles.listItemKnown}>
                   {word.ru} — {word.fr}
@@ -921,5 +1118,67 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  addRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  micBtn: {
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  micBtnActive: {
+    backgroundColor: '#e94560',
+    borderColor: '#e94560',
+  },
+  micBtnText: {
+    fontSize: 22,
+  },
+  suggestionsBox: {
+    backgroundColor: '#0f1729',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  suggestionsLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 6,
+  },
+  suggestion: {
+    backgroundColor: '#16213e',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  suggestionActive: {
+    borderColor: '#16c79a',
+    backgroundColor: 'rgba(22, 199, 154, 0.15)',
+  },
+  suggestionText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  addBtn: {
+    backgroundColor: '#16c79a',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addBtnText: {
+    color: '#1a1a2e',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
