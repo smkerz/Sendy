@@ -87,7 +87,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.9.1';
+const VERSION = '1.9.2';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -241,20 +241,31 @@ export default function App() {
         setListening(null);
       };
 
-      subs.push(addListener('result', (event) => {
-        if (event && event.isFinal) {
-          const transcripts = (event.results || []).map((r) => r.transcript);
-          handleResults(lang, transcripts);
-        }
-      }));
-      subs.push(addListener('end', cleanup));
-      subs.push(addListener('error', (event) => {
-        cleanup();
-        const code = event && (event.error || event.code);
-        if (code !== 'no-speech' && code !== 'aborted') {
-          alert('Erreur : ' + (event && (event.message || event.error) || 'inconnue'));
-        }
-      }));
+      // Diagnostic : on capture TOUS les events
+      let debugLog = [];
+      const events = ['result', 'end', 'error', 'start', 'speechstart', 'speechend', 'audiostart', 'audioend', 'nomatch'];
+      events.forEach((name) => {
+        try {
+          subs.push(addListener(name, (event) => {
+            const summary = name + ': ' + (event ? JSON.stringify(event).slice(0, 150) : 'no event');
+            debugLog.push(summary);
+            if (name === 'result' && event && event.results && event.results.length) {
+              const transcripts = event.results.map((r) => r.transcript || r);
+              handleResults(lang, transcripts);
+            }
+            if (name === 'error') {
+              cleanup();
+              alert('LOG:\n' + debugLog.join('\n'));
+            }
+            if (name === 'end') {
+              cleanup();
+              if (debugLog.filter((l) => l.startsWith('result')).length === 0) {
+                alert('Aucun result event recu. LOG:\n' + debugLog.join('\n'));
+              }
+            }
+          }));
+        } catch (e) {}
+      });
 
       setListening(lang);
       ESR.start({
