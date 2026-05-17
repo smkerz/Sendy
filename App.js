@@ -87,7 +87,7 @@ const WORDS = [
   { ru: 'Настроить', fr: 'configurer' },
 ];
 
-const VERSION = '1.9.2';
+const VERSION = '2.0.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -507,6 +507,44 @@ export default function App() {
       sub2.remove();
     };
   }, [speakWord]);
+
+  // Rappel quand l'app passe en arriere-plan
+  useEffect(() => {
+    if (!Notifications || Platform.OS === 'web') return;
+
+    const REMINDER_ID = 'sendy-comeback-reminder';
+
+    const handleAppStateChange = async (state) => {
+      if (state === 'background') {
+        try {
+          // Annuler tout rappel existant
+          await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
+
+          // Planifier un rappel dans 10 minutes
+          await Notifications.scheduleNotificationAsync({
+            identifier: REMINDER_ID,
+            content: {
+              title: 'Sendy',
+              body: 'Tu n auras plus de mots a apprendre tant que l app est fermee. Reviens vite !',
+              sound: true,
+            },
+            trigger: {
+              type: 'timeInterval',
+              seconds: 10 * 60,
+              repeats: false,
+            },
+          });
+        } catch (e) {}
+      } else if (state === 'active') {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
+        } catch (e) {}
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   const selectInterval = (minutes) => {
     setIntervalVal(minutes);
