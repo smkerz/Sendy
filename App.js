@@ -85,9 +85,35 @@ const WORDS = [
   { ru: 'Гнев', fr: 'colere' },
   { ru: 'Крыса', fr: 'rat' },
   { ru: 'Настроить', fr: 'configurer' },
+  { ru: 'Отлавливать', fr: 'attraper' },
+  { ru: 'Впечатляющий', fr: 'impressionant' },
+  { ru: 'Недооценивать', fr: 'sous-estimer' },
+  { ru: 'Сквозь', fr: 'a travers' },
+  { ru: 'Пропуск', fr: 'laissez-passer' },
+  { ru: 'Лягушка', fr: 'grenouille' },
+  { ru: 'Сожалеть', fr: 'regretter' },
+  { ru: 'Пусто', fr: 'vide' },
+  { ru: 'Радуга', fr: 'arc-en-ciel' },
+  { ru: 'Гнездо', fr: 'nid' },
+  { ru: 'Вождь', fr: 'chef' },
+  { ru: 'Особое', fr: 'particulier' },
+  { ru: 'Глубокий', fr: 'profond' },
+  { ru: 'Дворец', fr: 'palais' },
+  { ru: 'Осколок', fr: 'eclat' },
+  { ru: 'Грабеж', fr: 'pillage' },
+  { ru: 'Пластина', fr: 'plaque' },
+  { ru: 'Достойно', fr: 'dignement' },
+  { ru: 'Судьбой', fr: 'destin' },
+  { ru: 'Взорвать', fr: 'faire exploser' },
+  { ru: 'Наблюдение', fr: 'observation' },
+  { ru: 'Отчет', fr: 'rapport' },
+  { ru: 'Оковы', fr: 'chaine' },
+  { ru: 'Способностей', fr: 'capacite' },
+  { ru: 'Взбодрить', fr: 'remonter le moral' },
+  { ru: 'Измерения', fr: 'mesures' },
 ];
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
