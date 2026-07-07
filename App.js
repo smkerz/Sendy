@@ -113,7 +113,72 @@ const WORDS = [
   { ru: 'Измерения', fr: 'mesures' },
 ];
 
-const VERSION = '2.1.0';
+// Exemples : phrase russe + traduction francaise pour chaque mot
+const EXAMPLES = {
+  'Яда': { ru: 'Это сильный яд.', fr: 'C est un poison puissant.' },
+  'Существует': { ru: 'Такая книга существует.', fr: 'Un tel livre existe.' },
+  'Путь': { ru: 'Долгий путь домой.', fr: 'Un long chemin vers la maison.' },
+  'Башня': { ru: 'Эйфелева башня в Париже.', fr: 'La tour Eiffel est a Paris.' },
+  'Рассчитывать': { ru: 'Я рассчитываю на тебя.', fr: 'Je compte sur toi.' },
+  'Малявкой': { ru: 'Он был малявкой в школе.', fr: 'Il etait un petit gamin a l ecole.' },
+  'Прощаться': { ru: 'Пора прощаться.', fr: 'Il est temps de dire au revoir.' },
+  'Расследование': { ru: 'Полиция ведёт расследование.', fr: 'La police mene une enquete.' },
+  'Мой собственной': { ru: 'У меня свой собственный дом.', fr: 'J ai ma propre maison.' },
+  'Отшельник': { ru: 'Он живёт как отшельник.', fr: 'Il vit comme un ermite.' },
+  'Приказ': { ru: 'Я выполняю приказ.', fr: 'J execute l ordre.' },
+  'Тумана': { ru: 'Из тумана вышел человек.', fr: 'Un homme est sorti du brouillard.' },
+  'Трюм': { ru: 'Ящики стоят в трюме.', fr: 'Les caisses sont dans la cale.' },
+  'Прячусь': { ru: 'Я прячусь за деревом.', fr: 'Je me cache derriere l arbre.' },
+  'Пещера': { ru: 'В пещере темно.', fr: 'Il fait sombre dans la grotte.' },
+  'Зловещий': { ru: 'Зловещий смех в ночи.', fr: 'Un rire sinistre dans la nuit.' },
+  'Сущность': { ru: 'В чём сущность проблемы?', fr: 'Quelle est l essence du probleme ?' },
+  'Принять': { ru: 'Нужно принять решение.', fr: 'Il faut prendre une decision.' },
+  'Мешать': { ru: 'Не мешай мне работать.', fr: 'Ne me derange pas au travail.' },
+  'Ракушка': { ru: 'Я нашёл ракушку на пляже.', fr: 'J ai trouve un coquillage sur la plage.' },
+  'Украсть': { ru: 'Он попытался украсть кошелёк.', fr: 'Il a essaye de voler le portefeuille.' },
+  'Гибкий': { ru: 'У неё гибкое тело.', fr: 'Elle a un corps souple.' },
+  'Перевести стрелки': { ru: 'Он всегда переводит стрелки на других.', fr: 'Il rejette toujours la faute sur les autres.' },
+  'Гораздо': { ru: 'Это гораздо лучше.', fr: 'C est bien mieux.' },
+  'Привлекательный': { ru: 'Это привлекательный дом.', fr: 'C est une maison attrayante.' },
+  'Унижать': { ru: 'Не надо унижать людей.', fr: 'Il ne faut pas humilier les gens.' },
+  'Собралась': { ru: 'Вся семья собралась за столом.', fr: 'Toute la famille s est reunie a table.' },
+  'Корабль': { ru: 'Корабль плывёт в море.', fr: 'Le navire navigue en mer.' },
+  'Разочаровываться': { ru: 'Я разочаровываюсь в людях.', fr: 'Je suis decu par les gens.' },
+  'Долг': { ru: 'У меня большой долг.', fr: 'J ai une grosse dette.' },
+  'Кузнец': { ru: 'Кузнец кует железо.', fr: 'Le forgeron forge le fer.' },
+  'Близко': { ru: 'Дом близко к парку.', fr: 'La maison est proche du parc.' },
+  'Гнев': { ru: 'Его лицо было полно гнева.', fr: 'Son visage etait plein de colere.' },
+  'Крыса': { ru: 'В подвале жила крыса.', fr: 'Un rat vivait dans la cave.' },
+  'Настроить': { ru: 'Мне нужно настроить компьютер.', fr: 'Je dois configurer l ordinateur.' },
+  'Отлавливать': { ru: 'Кот отлавливает мышей.', fr: 'Le chat attrape les souris.' },
+  'Впечатляющий': { ru: 'Это впечатляющий вид.', fr: 'C est une vue impressionante.' },
+  'Недооценивать': { ru: 'Не надо недооценивать врага.', fr: 'Il ne faut pas sous-estimer l ennemi.' },
+  'Сквозь': { ru: 'Свет проходит сквозь окно.', fr: 'La lumiere passe a travers la fenetre.' },
+  'Пропуск': { ru: 'Покажите ваш пропуск.', fr: 'Montrez votre laissez-passer.' },
+  'Лягушка': { ru: 'Лягушка сидит на листе.', fr: 'La grenouille est assise sur une feuille.' },
+  'Сожалеть': { ru: 'Я сожалею о своих словах.', fr: 'Je regrette mes paroles.' },
+  'Пусто': { ru: 'В комнате пусто.', fr: 'La piece est vide.' },
+  'Радуга': { ru: 'После дождя появилась радуга.', fr: 'Un arc-en-ciel est apparu apres la pluie.' },
+  'Гнездо': { ru: 'Птица построила гнездо.', fr: 'L oiseau a construit un nid.' },
+  'Вождь': { ru: 'Вождь племени принял решение.', fr: 'Le chef de la tribu a pris une decision.' },
+  'Особое': { ru: 'У него особое место.', fr: 'Il a une place particuliere.' },
+  'Глубокий': { ru: 'Это глубокий колодец.', fr: 'C est un puits profond.' },
+  'Дворец': { ru: 'Он живёт во дворце.', fr: 'Il vit dans un palais.' },
+  'Осколок': { ru: 'На полу лежал осколок стекла.', fr: 'Un eclat de verre etait par terre.' },
+  'Грабеж': { ru: 'В городе был грабеж.', fr: 'Il y a eu un pillage en ville.' },
+  'Пластина': { ru: 'Это металлическая пластина.', fr: 'C est une plaque metallique.' },
+  'Достойно': { ru: 'Он вёл себя достойно.', fr: 'Il s est comporte dignement.' },
+  'Судьбой': { ru: 'Это было решено судьбой.', fr: 'C etait ecrit par le destin.' },
+  'Взорвать': { ru: 'Они хотели взорвать мост.', fr: 'Ils voulaient faire exploser le pont.' },
+  'Наблюдение': { ru: 'Ведётся наблюдение за домом.', fr: 'La maison est sous observation.' },
+  'Отчет': { ru: 'Я должен написать отчёт.', fr: 'Je dois ecrire un rapport.' },
+  'Оковы': { ru: 'Он сбросил свои оковы.', fr: 'Il a rejete ses chaines.' },
+  'Способностей': { ru: 'У неё много способностей.', fr: 'Elle a beaucoup de capacites.' },
+  'Взбодрить': { ru: 'Кофе меня взбодрит.', fr: 'Le cafe va me redonner de l energie.' },
+  'Измерения': { ru: 'Нужно сделать измерения.', fr: 'Il faut faire des mesures.' },
+};
+
+const VERSION = '2.2.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -416,10 +481,13 @@ export default function App() {
     const maxNotifs = Math.min(Math.floor(1440 / minutes), 64);
     for (let i = 1; i <= maxNotifs; i++) {
       const word = words[Math.floor(Math.random() * words.length)];
+      const ex = EXAMPLES[word.ru];
+      const body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: word.ru,
-          body: word.fr,
+          body,
+          data: { ru: word.ru, fr: word.fr, exRu: ex ? ex.ru : null, exFr: ex ? ex.fr : null },
           sound: true,
         },
         trigger: {
@@ -434,10 +502,12 @@ export default function App() {
   // --- Notifications web (navigateur) ---
   const sendWebNotification = useCallback((word) => {
     if (Platform.OS !== 'web') return;
+    const ex = EXAMPLES[word.ru];
+    const body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
     if ('Notification' in window && window.Notification.permission === 'granted') {
-      new window.Notification(word.ru, { body: word.fr });
+      new window.Notification(word.ru, { body });
     }
-    setNextWord(word);
+    setNextWord({ ...word, ex });
   }, []);
 
   const startWebTimer = useCallback((minutes, words) => {
@@ -486,7 +556,7 @@ export default function App() {
       }
 
       const first = getRandomWord(activeWords);
-      if (first) setNextWord(first);
+      if (first) setNextWord({ ...first, ex: EXAMPLES[first.ru] || null });
     } else {
       if (Platform.OS === 'web') {
         stopWebTimer();
@@ -505,24 +575,29 @@ export default function App() {
   useEffect(() => {
     if (!Notifications) return;
 
+    const parseNotif = (content) => {
+      const { title, data } = content;
+      const ru = (data && data.ru) || title;
+      const fr = (data && data.fr) || content.body;
+      const ex = data && data.exRu ? { ru: data.exRu, fr: data.exFr } : (EXAMPLES[ru] || null);
+      return { ru, fr, ex };
+    };
+
     const sub1 = Notifications.addNotificationReceivedListener((notification) => {
-      const { title, body } = notification.request.content;
-      const w = { ru: title, fr: body };
+      const w = parseNotif(notification.request.content);
       setNextWord(w);
       speakWord(w);
     });
 
     const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
-      const { title, body } = response.notification.request.content;
-      const w = { ru: title, fr: body };
+      const w = parseNotif(response.notification.request.content);
       setNextWord(w);
       speakWord(w);
     });
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
-        const { title, body } = response.notification.request.content;
-        const w = { ru: title, fr: body };
+        const w = parseNotif(response.notification.request.content);
         setNextWord(w);
         speakWord(w);
       }
@@ -837,6 +912,12 @@ export default function App() {
               <Text style={styles.sectionTitle}>Dernier mot</Text>
               <Text style={styles.russian}>{nextWord.ru}</Text>
               <Text style={styles.french}>{nextWord.fr}</Text>
+              {(nextWord.ex || EXAMPLES[nextWord.ru]) && (
+                <View style={styles.exampleBox}>
+                  <Text style={styles.exampleRu}>{(nextWord.ex || EXAMPLES[nextWord.ru]).ru}</Text>
+                  <Text style={styles.exampleFr}>{(nextWord.ex || EXAMPLES[nextWord.ru]).fr}</Text>
+                </View>
+              )}
               <View style={styles.cardBtns}>
                 <TouchableOpacity
                   style={styles.listenBtn}
@@ -1064,6 +1145,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#16c79a',
     marginBottom: 12,
+  },
+  exampleBox: {
+    marginTop: 6,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#0f1729',
+    borderRadius: 8,
+    alignSelf: 'stretch',
+  },
+  exampleRu: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontStyle: 'italic',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  exampleFr: {
+    color: '#aaaaaa',
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   cardBtns: {
     flexDirection: 'row',
