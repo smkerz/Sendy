@@ -275,16 +275,16 @@ const CONJUGATIONS = {
   },
 };
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
 const STORAGE_INTERVAL = 'sendy_interval';
 const STORAGE_VOICE = 'sendy_voice';
 const STORAGE_USER_WORDS = 'sendy_user_words';
+const STORAGE_USER_EXAMPLES = 'sendy_user_examples';
 
-function WordRow({ word, known, expanded, onToggle, onAction, onSpeak }) {
-  const ex = EXAMPLES[word.ru];
+function WordRow({ word, known, expanded, onToggle, onAction, onSpeak, ex }) {
   const conj = CONJUGATIONS[word.ru];
   const pronouns = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
   const forms = conj && (conj.present || conj.future);
@@ -355,16 +355,24 @@ export default function App() {
   const [quizFeedback, setQuizFeedback] = useState(null);
   const [quizScore, setQuizScore] = useState({ correct: 0, total: 0 });
   const [userWords, setUserWords] = useState([]);
+  const [userExamples, setUserExamples] = useState({}); // { ru: {ru, fr} }
   const [newRu, setNewRu] = useState('');
   const [newFr, setNewFr] = useState('');
+  const [newExRu, setNewExRu] = useState('');
+  const [newExFr, setNewExFr] = useState('');
+  const [exSearchResults, setExSearchResults] = useState([]);
+  const [searchingEx, setSearchingEx] = useState(false);
   const [ruSuggestions, setRuSuggestions] = useState([]);
   const [frSuggestions, setFrSuggestions] = useState([]);
-  const [listening, setListening] = useState(null); // null | 'ru' | 'fr'
+  const [listening, setListening] = useState(null);
   const webTimerRef = useRef(null);
   const recognitionRef = useRef(null);
 
   // Liste combinee : mots de base + mots utilisateur
   const ALL_WORDS = [...WORDS, ...userWords];
+
+  // Lookup exemple : userExamples surcharge EXAMPLES
+  const getExample = (ru) => userExamples[ru] || EXAMPLES[ru] || null;
 
   // Generer une question de quiz
   const generateQuiz = useCallback(() => {
@@ -539,14 +547,28 @@ export default function App() {
       return;
     }
     setUserWords([...userWords, { ru, fr }]);
+
+    // Sauvegarder l'exemple si l'utilisateur en a saisi/selectionne un
+    const exRu = newExRu.trim();
+    const exFr = newExFr.trim();
+    if (exRu && exFr) {
+      setUserExamples({ ...userExamples, [ru]: { ru: exRu, fr: exFr } });
+    }
+
     setNewRu('');
     setNewFr('');
+    setNewExRu('');
+    setNewExFr('');
     setRuSuggestions([]);
     setFrSuggestions([]);
+    setExSearchResults([]);
   };
 
   const deleteUserWord = (ru) => {
     setUserWords(userWords.filter((w) => w.ru !== ru));
+    const next = { ...userExamples };
+    delete next[ru];
+    setUserExamples(next);
   };
 
   const speakWord = useCallback((word) => {
@@ -585,11 +607,46 @@ export default function App() {
     Storage.getItem(STORAGE_USER_WORDS).then((data) => {
       if (data) setUserWords(JSON.parse(data));
     });
+    Storage.getItem(STORAGE_USER_EXAMPLES).then((data) => {
+      if (data) setUserExamples(JSON.parse(data));
+    });
   }, []);
 
   useEffect(() => {
     Storage.setItem(STORAGE_USER_WORDS, JSON.stringify(userWords));
   }, [userWords]);
+
+  useEffect(() => {
+    Storage.setItem(STORAGE_USER_EXAMPLES, JSON.stringify(userExamples));
+  }, [userExamples]);
+
+  // Recherche d'exemples sur Tatoeba (base gratuite, sans cle)
+  const searchExample = async () => {
+    const query = newRu.trim();
+    if (!query) {
+      alert('Entre d abord le mot russe');
+      return;
+    }
+    setSearchingEx(true);
+    setExSearchResults([]);
+    try {
+      const url = `https://tatoeba.org/en/api_v0/search?query=${encodeURIComponent(query)}&from=rus&to=fra&sort=random`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const results = (data.results || []).map((r) => {
+        const trans = r.translations && r.translations[0] && r.translations[0].find((t) => t.lang === 'fra');
+        return { ru: r.text, fr: trans ? trans.text : '' };
+      }).filter((r) => r.fr).slice(0, 5);
+      if (results.length === 0) {
+        alert('Aucune phrase trouvee pour "' + query + '"');
+      }
+      setExSearchResults(results);
+    } catch (e) {
+      alert('Erreur recherche : ' + e.message);
+    } finally {
+      setSearchingEx(false);
+    }
+  };
 
   useEffect(() => {
     Storage.setItem(STORAGE_VOICE, voiceEnabled.toString());
@@ -635,7 +692,7 @@ export default function App() {
     const maxNotifs = Math.min(Math.floor(1440 / minutes), 64);
     for (let i = 1; i <= maxNotifs; i++) {
       const word = words[Math.floor(Math.random() * words.length)];
-      const ex = EXAMPLES[word.ru];
+      const ex = getExample(word.ru);
       const conj = CONJUGATIONS[word.ru];
       let body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
       if (conj) body += `\n\n(verbe - ouvre l'app pour la conjugaison)`;
@@ -658,7 +715,7 @@ export default function App() {
   // --- Notifications web (navigateur) ---
   const sendWebNotification = useCallback((word) => {
     if (Platform.OS !== 'web') return;
-    const ex = EXAMPLES[word.ru];
+    const ex = getExample(word.ru);
     const body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
     if ('Notification' in window && window.Notification.permission === 'granted') {
       new window.Notification(word.ru, { body });
@@ -712,7 +769,7 @@ export default function App() {
       }
 
       const first = getRandomWord(activeWords);
-      if (first) setNextWord({ ...first, ex: EXAMPLES[first.ru] || null });
+      if (first) setNextWord({ ...first, ex: getExample(first.ru) });
     } else {
       if (Platform.OS === 'web') {
         stopWebTimer();
@@ -735,7 +792,7 @@ export default function App() {
       const { title, data } = content;
       const ru = (data && data.ru) || title;
       const fr = (data && data.fr) || content.body;
-      const ex = data && data.exRu ? { ru: data.exRu, fr: data.exFr } : (EXAMPLES[ru] || null);
+      const ex = data && data.exRu ? { ru: data.exRu, fr: data.exFr } : getExample(ru);
       return { ru, fr, ex };
     };
 
@@ -982,7 +1039,49 @@ export default function App() {
             </View>
           )}
 
-          <TouchableOpacity style={styles.addBtn} onPress={addUserWord}>
+          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Phrase d exemple (facultatif)</Text>
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: '#e94560', marginTop: 4, marginBottom: 8 }]}
+            onPress={searchExample}
+            disabled={searchingEx}
+          >
+            <Text style={styles.addBtnText}>
+              {searchingEx ? 'Recherche...' : 'Chercher un exemple gratuit (Tatoeba)'}
+            </Text>
+          </TouchableOpacity>
+
+          {exSearchResults.length > 0 && (
+            <View style={styles.suggestionsBox}>
+              <Text style={styles.suggestionsLabel}>Choisis un exemple :</Text>
+              {exSearchResults.map((res, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.suggestion, newExRu === res.ru && styles.suggestionActive]}
+                  onPress={() => { setNewExRu(res.ru); setNewExFr(res.fr); }}
+                >
+                  <Text style={styles.suggestionText}>{res.ru}</Text>
+                  <Text style={[styles.suggestionText, { fontSize: 13, color: '#aaa' }]}>{res.fr}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TextInput
+            style={[styles.input, { marginBottom: 6 }]}
+            placeholder="Phrase russe"
+            placeholderTextColor="#666"
+            value={newExRu}
+            onChangeText={setNewExRu}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Traduction francaise"
+            placeholderTextColor="#666"
+            value={newExFr}
+            onChangeText={setNewExFr}
+          />
+
+          <TouchableOpacity style={[styles.addBtn, { marginTop: 12 }]} onPress={addUserWord}>
             <Text style={styles.addBtnText}>+ Ajouter le mot</Text>
           </TouchableOpacity>
 
@@ -1068,10 +1167,10 @@ export default function App() {
               <Text style={styles.sectionTitle}>Dernier mot</Text>
               <Text style={styles.russian}>{nextWord.ru}</Text>
               <Text style={styles.french}>{nextWord.fr}</Text>
-              {(nextWord.ex || EXAMPLES[nextWord.ru]) && (
+              {(nextWord.ex || getExample(nextWord.ru)) && (
                 <View style={styles.exampleBox}>
-                  <Text style={styles.exampleRu}>{(nextWord.ex || EXAMPLES[nextWord.ru]).ru}</Text>
-                  <Text style={styles.exampleFr}>{(nextWord.ex || EXAMPLES[nextWord.ru]).fr}</Text>
+                  <Text style={styles.exampleRu}>{(nextWord.ex || getExample(nextWord.ru)).ru}</Text>
+                  <Text style={styles.exampleFr}>{(nextWord.ex || getExample(nextWord.ru)).fr}</Text>
                 </View>
               )}
               {CONJUGATIONS[nextWord.ru] && (() => {
@@ -1156,6 +1255,7 @@ export default function App() {
               onToggle={() => setExpandedWord(expandedWord === word.ru ? null : word.ru)}
               onAction={() => markAsKnown(word.ru)}
               onSpeak={() => speakWord(word)}
+              ex={getExample(word.ru)}
             />
           ))
         ) : (
@@ -1171,6 +1271,7 @@ export default function App() {
                 onToggle={() => setExpandedWord(expandedWord === word.ru ? null : word.ru)}
                 onAction={() => markAsUnknown(word.ru)}
                 onSpeak={() => speakWord(word)}
+                ex={getExample(word.ru)}
               />
             ))
           )
