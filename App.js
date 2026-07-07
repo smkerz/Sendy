@@ -275,13 +275,69 @@ const CONJUGATIONS = {
   },
 };
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
 const STORAGE_INTERVAL = 'sendy_interval';
 const STORAGE_VOICE = 'sendy_voice';
 const STORAGE_USER_WORDS = 'sendy_user_words';
+
+function WordRow({ word, known, expanded, onToggle, onAction, onSpeak }) {
+  const ex = EXAMPLES[word.ru];
+  const conj = CONJUGATIONS[word.ru];
+  const pronouns = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
+  const forms = conj && (conj.present || conj.future);
+  const tenseLabel = conj && (conj.present ? 'Present' : 'Futur');
+
+  return (
+    <View style={[styles.wordCard, expanded && styles.wordCardExpanded]}>
+      <TouchableOpacity style={styles.wordRow} onPress={onToggle} activeOpacity={0.7}>
+        <Text style={known ? styles.listItemKnown : styles.listItem}>
+          {word.ru} — {word.fr}
+          {conj && <Text style={styles.verbTag}> {'  '}(verbe)</Text>}
+        </Text>
+        <TouchableOpacity onPress={onAction}>
+          <Text style={known ? styles.undoBtn : styles.checkBtn}>{known ? 'Remettre' : 'OK'}</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+      {expanded && (
+        <View style={styles.wordDetail}>
+          <TouchableOpacity style={styles.detailListenBtn} onPress={onSpeak}>
+            <Text style={styles.detailListenText}>♪ Ecouter</Text>
+          </TouchableOpacity>
+          {ex && (
+            <View style={styles.exampleBox}>
+              <Text style={styles.exampleRu}>{ex.ru}</Text>
+              <Text style={styles.exampleFr}>{ex.fr}</Text>
+            </View>
+          )}
+          {conj && (
+            <View style={styles.conjBox}>
+              <Text style={styles.conjTitle}>Conjugaison</Text>
+              <Text style={styles.conjInf}>infinitif : {conj.inf} ({conj.aspect === 'perfective' ? 'perfectif' : 'imperfectif'})</Text>
+              <Text style={styles.conjSubtitle}>{tenseLabel}</Text>
+              {pronouns.map((p, i) => (
+                <Text key={p} style={styles.conjLine}>
+                  <Text style={styles.conjPron}>{p}</Text>{'  '}{forms[i]}
+                </Text>
+              ))}
+              <Text style={styles.conjSubtitle}>Passe</Text>
+              {['il', 'elle', 'ils/elles'].map((p, i) => (
+                <Text key={p} style={styles.conjLine}>
+                  <Text style={styles.conjPron}>{p}</Text>{'  '}{conj.past[i]}
+                </Text>
+              ))}
+            </View>
+          )}
+          {!ex && !conj && (
+            <Text style={styles.emptyText}>Pas d'exemple ni de conjugaison pour ce mot.</Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
 
 export default function App() {
   const [enabled, setEnabled] = useState(false);
@@ -291,6 +347,7 @@ export default function App() {
   const [nextWord, setNextWord] = useState(null);
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
+  const [expandedWord, setExpandedWord] = useState(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState('words'); // 'words' | 'quiz' | 'add' | 'settings'
   const [quizWord, setQuizWord] = useState(null);
@@ -1091,28 +1148,30 @@ export default function App() {
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={true}>
         {!showKnown ? (
           activeWords.map((word, index) => (
-            <View key={index} style={styles.wordRow}>
-              <Text style={styles.listItem}>
-                {word.ru} — {word.fr}
-              </Text>
-              <TouchableOpacity onPress={() => markAsKnown(word.ru)}>
-                <Text style={styles.checkBtn}>OK</Text>
-              </TouchableOpacity>
-            </View>
+            <WordRow
+              key={index}
+              word={word}
+              known={false}
+              expanded={expandedWord === word.ru}
+              onToggle={() => setExpandedWord(expandedWord === word.ru ? null : word.ru)}
+              onAction={() => markAsKnown(word.ru)}
+              onSpeak={() => speakWord(word)}
+            />
           ))
         ) : (
           knownWords.length === 0 ? (
             <Text style={styles.emptyText}>Aucun mot connu pour l'instant</Text>
           ) : (
             ALL_WORDS.filter((w) => knownWords.includes(w.ru)).map((word, index) => (
-              <View key={index} style={styles.wordRow}>
-                <Text style={styles.listItemKnown}>
-                  {word.ru} — {word.fr}
-                </Text>
-                <TouchableOpacity onPress={() => markAsUnknown(word.ru)}>
-                  <Text style={styles.undoBtn}>Remettre</Text>
-                </TouchableOpacity>
-              </View>
+              <WordRow
+                key={index}
+                word={word}
+                known={true}
+                expanded={expandedWord === word.ru}
+                onToggle={() => setExpandedWord(expandedWord === word.ru ? null : word.ru)}
+                onAction={() => markAsUnknown(word.ru)}
+                onSpeak={() => speakWord(word)}
+              />
             ))
           )
         )}
@@ -1269,6 +1328,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#16c79a',
     marginBottom: 12,
+  },
+  wordCard: {
+    marginBottom: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  wordCardExpanded: {
+    backgroundColor: '#16213e',
+    marginBottom: 10,
+  },
+  wordDetail: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  verbTag: {
+    color: '#16c79a',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  detailListenBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e94560',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  detailListenText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
   exampleBox: {
     marginTop: 6,
