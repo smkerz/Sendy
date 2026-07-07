@@ -178,7 +178,104 @@ const EXAMPLES = {
   'Измерения': { ru: 'Нужно сделать измерения.', fr: 'Il faut faire des mesures.' },
 };
 
-const VERSION = '2.2.0';
+// Conjugaisons des verbes
+// aspect: imperfective (present) | perfective (future)
+// Ordre present/future : я, ты, он/она, мы, вы, они
+// Ordre passe : il, elle, ils/elles
+const CONJUGATIONS = {
+  'Существует': {
+    inf: 'существовать', aspect: 'imperfective',
+    present: ['существую', 'существуешь', 'существует', 'существуем', 'существуете', 'существуют'],
+    past: ['существовал', 'существовала', 'существовали'],
+  },
+  'Рассчитывать': {
+    inf: 'рассчитывать', aspect: 'imperfective',
+    present: ['рассчитываю', 'рассчитываешь', 'рассчитывает', 'рассчитываем', 'рассчитываете', 'рассчитывают'],
+    past: ['рассчитывал', 'рассчитывала', 'рассчитывали'],
+  },
+  'Прощаться': {
+    inf: 'прощаться', aspect: 'imperfective',
+    present: ['прощаюсь', 'прощаешься', 'прощается', 'прощаемся', 'прощаетесь', 'прощаются'],
+    past: ['прощался', 'прощалась', 'прощались'],
+  },
+  'Прячусь': {
+    inf: 'прятаться', aspect: 'imperfective',
+    present: ['прячусь', 'прячешься', 'прячется', 'прячемся', 'прячетесь', 'прячутся'],
+    past: ['прятался', 'пряталась', 'прятались'],
+  },
+  'Принять': {
+    inf: 'принять', aspect: 'perfective',
+    future: ['приму', 'примешь', 'примет', 'примем', 'примете', 'примут'],
+    past: ['принял', 'приняла', 'приняли'],
+  },
+  'Мешать': {
+    inf: 'мешать', aspect: 'imperfective',
+    present: ['мешаю', 'мешаешь', 'мешает', 'мешаем', 'мешаете', 'мешают'],
+    past: ['мешал', 'мешала', 'мешали'],
+  },
+  'Украсть': {
+    inf: 'украсть', aspect: 'perfective',
+    future: ['украду', 'украдёшь', 'украдёт', 'украдём', 'украдёте', 'украдут'],
+    past: ['украл', 'украла', 'украли'],
+  },
+  'Унижать': {
+    inf: 'унижать', aspect: 'imperfective',
+    present: ['унижаю', 'унижаешь', 'унижает', 'унижаем', 'унижаете', 'унижают'],
+    past: ['унижал', 'унижала', 'унижали'],
+  },
+  'Собралась': {
+    inf: 'собраться', aspect: 'perfective',
+    future: ['соберусь', 'соберёшься', 'соберётся', 'соберёмся', 'соберётесь', 'соберутся'],
+    past: ['собрался', 'собралась', 'собрались'],
+  },
+  'Разочаровываться': {
+    inf: 'разочаровываться', aspect: 'imperfective',
+    present: ['разочаровываюсь', 'разочаровываешься', 'разочаровывается', 'разочаровываемся', 'разочаровываетесь', 'разочаровываются'],
+    past: ['разочаровывался', 'разочаровывалась', 'разочаровывались'],
+  },
+  'Настроить': {
+    inf: 'настроить', aspect: 'perfective',
+    future: ['настрою', 'настроишь', 'настроит', 'настроим', 'настроите', 'настроят'],
+    past: ['настроил', 'настроила', 'настроили'],
+  },
+  'Отлавливать': {
+    inf: 'отлавливать', aspect: 'imperfective',
+    present: ['отлавливаю', 'отлавливаешь', 'отлавливает', 'отлавливаем', 'отлавливаете', 'отлавливают'],
+    past: ['отлавливал', 'отлавливала', 'отлавливали'],
+  },
+  'Недооценивать': {
+    inf: 'недооценивать', aspect: 'imperfective',
+    present: ['недооцениваю', 'недооцениваешь', 'недооценивает', 'недооцениваем', 'недооцениваете', 'недооценивают'],
+    past: ['недооценивал', 'недооценивала', 'недооценивали'],
+  },
+  'Сожалеть': {
+    inf: 'сожалеть', aspect: 'imperfective',
+    present: ['сожалею', 'сожалеешь', 'сожалеет', 'сожалеем', 'сожалеете', 'сожалеют'],
+    past: ['сожалел', 'сожалела', 'сожалели'],
+  },
+  'Взорвать': {
+    inf: 'взорвать', aspect: 'perfective',
+    future: ['взорву', 'взорвёшь', 'взорвёт', 'взорвём', 'взорвёте', 'взорвут'],
+    past: ['взорвал', 'взорвала', 'взорвали'],
+  },
+  'Взбодрить': {
+    inf: 'взбодрить', aspect: 'perfective',
+    future: ['взбодрю', 'взбодришь', 'взбодрит', 'взбодрим', 'взбодрите', 'взбодрят'],
+    past: ['взбодрил', 'взбодрила', 'взбодрили'],
+  },
+  'Перевести стрелки': {
+    inf: 'перевести', aspect: 'perfective',
+    future: ['переведу', 'переведёшь', 'переведёт', 'переведём', 'переведёте', 'переведут'],
+    past: ['перевёл', 'перевела', 'перевели'],
+  },
+  'Прощаться': {
+    inf: 'прощаться', aspect: 'imperfective',
+    present: ['прощаюсь', 'прощаешься', 'прощается', 'прощаемся', 'прощаетесь', 'прощаются'],
+    past: ['прощался', 'прощалась', 'прощались'],
+  },
+};
+
+const VERSION = '2.3.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -482,7 +579,9 @@ export default function App() {
     for (let i = 1; i <= maxNotifs; i++) {
       const word = words[Math.floor(Math.random() * words.length)];
       const ex = EXAMPLES[word.ru];
-      const body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
+      const conj = CONJUGATIONS[word.ru];
+      let body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
+      if (conj) body += `\n\n(verbe - ouvre l'app pour la conjugaison)`;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: word.ru,
@@ -918,6 +1017,31 @@ export default function App() {
                   <Text style={styles.exampleFr}>{(nextWord.ex || EXAMPLES[nextWord.ru]).fr}</Text>
                 </View>
               )}
+              {CONJUGATIONS[nextWord.ru] && (() => {
+                const c = CONJUGATIONS[nextWord.ru];
+                const forms = c.present || c.future;
+                const tenseLabel = c.present ? 'Present' : 'Futur (perfectif)';
+                const pronouns = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
+                const pastLabels = ['il', 'elle', 'ils/elles'];
+                return (
+                  <View style={styles.conjBox}>
+                    <Text style={styles.conjTitle}>Conjugaison</Text>
+                    <Text style={styles.conjInf}>infinitif : {c.inf} ({c.aspect === 'perfective' ? 'perfectif' : 'imperfectif'})</Text>
+                    <Text style={styles.conjSubtitle}>{tenseLabel}</Text>
+                    {pronouns.map((p, i) => (
+                      <Text key={p} style={styles.conjLine}>
+                        <Text style={styles.conjPron}>{p}</Text>{'  '}{forms[i]}
+                      </Text>
+                    ))}
+                    <Text style={styles.conjSubtitle}>Passe</Text>
+                    {pastLabels.map((p, i) => (
+                      <Text key={p} style={styles.conjLine}>
+                        <Text style={styles.conjPron}>{p}</Text>{'  '}{c.past[i]}
+                      </Text>
+                    ))}
+                  </View>
+                );
+              })()}
               <View style={styles.cardBtns}>
                 <TouchableOpacity
                   style={styles.listenBtn}
@@ -1154,6 +1278,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f1729',
     borderRadius: 8,
     alignSelf: 'stretch',
+  },
+  conjBox: {
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#0f1729',
+    borderRadius: 8,
+    alignSelf: 'stretch',
+    borderLeftWidth: 3,
+    borderLeftColor: '#16c79a',
+  },
+  conjTitle: {
+    color: '#16c79a',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  conjInf: {
+    color: '#aaa',
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  conjSubtitle: {
+    color: '#e94560',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  conjLine: {
+    color: '#ffffff',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  conjPron: {
+    color: '#888',
+    fontSize: 13,
   },
   exampleRu: {
     color: '#ffffff',
