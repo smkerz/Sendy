@@ -111,6 +111,11 @@ const WORDS = [
   { ru: 'Способностей', fr: 'capacite' },
   { ru: 'Взбодрить', fr: 'remonter le moral' },
   { ru: 'Измерения', fr: 'mesures' },
+  { ru: 'Предков', fr: 'ancetre' },
+  { ru: 'Сомневаюсь', fr: 'douter de' },
+  { ru: 'Тщетно', fr: 'en vain' },
+  { ru: 'Храбрый', fr: 'brave' },
+  { ru: 'Я внутри', fr: 'je suis rentre' },
 ];
 
 // Exemples : phrase russe + traduction francaise pour chaque mot
@@ -176,6 +181,11 @@ const EXAMPLES = {
   'Способностей': { ru: 'У неё много способностей.', fr: 'Elle a beaucoup de capacites.' },
   'Взбодрить': { ru: 'Кофе меня взбодрит.', fr: 'Le cafe va me redonner de l energie.' },
   'Измерения': { ru: 'Нужно сделать измерения.', fr: 'Il faut faire des mesures.' },
+  'Предков': { ru: 'Он изучает историю своих предков.', fr: 'Il etudie l histoire de ses ancetres.' },
+  'Сомневаюсь': { ru: 'Я сомневаюсь в его словах.', fr: 'Je doute de ses paroles.' },
+  'Тщетно': { ru: 'Он тщетно пытался открыть дверь.', fr: 'Il essayait en vain d ouvrir la porte.' },
+  'Храбрый': { ru: 'Он храбрый солдат.', fr: 'C est un soldat brave.' },
+  'Я внутри': { ru: 'Я внутри дома.', fr: 'Je suis a l interieur de la maison.' },
 };
 
 // Conjugaisons des verbes
@@ -273,9 +283,14 @@ const CONJUGATIONS = {
     present: ['прощаюсь', 'прощаешься', 'прощается', 'прощаемся', 'прощаетесь', 'прощаются'],
     past: ['прощался', 'прощалась', 'прощались'],
   },
+  'Сомневаюсь': {
+    inf: 'сомневаться', aspect: 'imperfective',
+    present: ['сомневаюсь', 'сомневаешься', 'сомневается', 'сомневаемся', 'сомневаетесь', 'сомневаются'],
+    past: ['сомневался', 'сомневалась', 'сомневались'],
+  },
 };
 
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
