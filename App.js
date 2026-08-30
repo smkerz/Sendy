@@ -285,7 +285,7 @@ const CONJUGATIONS = {
   },
 };
 
-const VERSION = '3.1.1';
+const VERSION = '3.1.2';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -836,43 +836,41 @@ export default function App() {
     };
   }, [speakWord]);
 
-  // Rappel quand l'app passe en arriere-plan
+  // Rappel de retour : planifie 30 min apres l'arriere-plan
+  // UNIQUEMENT si les notifications de mots sont desactivees
+  // (sinon l'utilisateur recoit deja des mots reguliers, ce rappel serait redondant)
   useEffect(() => {
     if (!Notifications || Platform.OS === 'web') return;
 
     const REMINDER_ID = 'sendy-comeback-reminder';
 
     const handleAppStateChange = async (state) => {
-      if (state === 'background') {
-        try {
-          // Annuler tout rappel existant
-          await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
+      try {
+        await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
+      } catch (e) {}
 
-          // Planifier un rappel dans 10 minutes
+      if (state === 'background' && !enabled) {
+        try {
           await Notifications.scheduleNotificationAsync({
             identifier: REMINDER_ID,
             content: {
-              title: 'Sendy',
-              body: 'Tu n auras plus de mots a apprendre tant que l app est fermee. Reviens vite !',
+              title: '📚 Rappel Sendy',
+              body: 'Tu as ferme Sendy il y a 30 min. Reviens apprendre du russe !',
               sound: true,
             },
             trigger: {
               type: 'timeInterval',
-              seconds: 10 * 60,
+              seconds: 30 * 60,
               repeats: false,
             },
           });
-        } catch (e) {}
-      } else if (state === 'active') {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
         } catch (e) {}
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, []);
+  }, [enabled]);
 
   const selectInterval = (minutes) => {
     setIntervalVal(minutes);
