@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, AppState, StatusBar, Platform } from 'react-native';
 
 // Text-to-speech
@@ -278,11 +278,6 @@ const CONJUGATIONS = {
     future: ['переведу', 'переведёшь', 'переведёт', 'переведём', 'переведёте', 'переведут'],
     past: ['перевёл', 'перевела', 'перевели'],
   },
-  'Прощаться': {
-    inf: 'прощаться', aspect: 'imperfective',
-    present: ['прощаюсь', 'прощаешься', 'прощается', 'прощаемся', 'прощаетесь', 'прощаются'],
-    past: ['прощался', 'прощалась', 'прощались'],
-  },
   'Сомневаюсь': {
     inf: 'сомневаться', aspect: 'imperfective',
     present: ['сомневаюсь', 'сомневаешься', 'сомневается', 'сомневаемся', 'сомневаетесь', 'сомневаются'],
@@ -290,7 +285,7 @@ const CONJUGATIONS = {
   },
 };
 
-const VERSION = '3.1.0';
+const VERSION = '3.1.1';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -299,11 +294,35 @@ const STORAGE_VOICE = 'sendy_voice';
 const STORAGE_USER_WORDS = 'sendy_user_words';
 const STORAGE_USER_EXAMPLES = 'sendy_user_examples';
 
+const PRONOUNS = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
+const PAST_LABELS = ['il', 'elle', 'ils/elles'];
+
+function ConjugationBlock({ conj }) {
+  if (!conj) return null;
+  const forms = conj.present || conj.future;
+  const tenseLabel = conj.present ? 'Present' : 'Futur (perfectif)';
+  return (
+    <View style={styles.conjBox}>
+      <Text style={styles.conjTitle}>Conjugaison</Text>
+      <Text style={styles.conjInf}>infinitif : {conj.inf} ({conj.aspect === 'perfective' ? 'perfectif' : 'imperfectif'})</Text>
+      <Text style={styles.conjSubtitle}>{tenseLabel}</Text>
+      {PRONOUNS.map((p, i) => (
+        <Text key={p} style={styles.conjLine}>
+          <Text style={styles.conjPron}>{p}</Text>{'  '}{forms[i]}
+        </Text>
+      ))}
+      <Text style={styles.conjSubtitle}>Passe</Text>
+      {PAST_LABELS.map((p, i) => (
+        <Text key={p} style={styles.conjLine}>
+          <Text style={styles.conjPron}>{p}</Text>{'  '}{conj.past[i]}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 function WordRow({ word, known, expanded, onToggle, onAction, onSpeak, ex }) {
   const conj = CONJUGATIONS[word.ru];
-  const pronouns = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
-  const forms = conj && (conj.present || conj.future);
-  const tenseLabel = conj && (conj.present ? 'Present' : 'Futur');
 
   return (
     <View style={[styles.wordCard, expanded && styles.wordCardExpanded]}>
@@ -327,24 +346,7 @@ function WordRow({ word, known, expanded, onToggle, onAction, onSpeak, ex }) {
               <Text style={styles.exampleFr}>{ex.fr}</Text>
             </View>
           )}
-          {conj && (
-            <View style={styles.conjBox}>
-              <Text style={styles.conjTitle}>Conjugaison</Text>
-              <Text style={styles.conjInf}>infinitif : {conj.inf} ({conj.aspect === 'perfective' ? 'perfectif' : 'imperfectif'})</Text>
-              <Text style={styles.conjSubtitle}>{tenseLabel}</Text>
-              {pronouns.map((p, i) => (
-                <Text key={p} style={styles.conjLine}>
-                  <Text style={styles.conjPron}>{p}</Text>{'  '}{forms[i]}
-                </Text>
-              ))}
-              <Text style={styles.conjSubtitle}>Passe</Text>
-              {['il', 'elle', 'ils/elles'].map((p, i) => (
-                <Text key={p} style={styles.conjLine}>
-                  <Text style={styles.conjPron}>{p}</Text>{'  '}{conj.past[i]}
-                </Text>
-              ))}
-            </View>
-          )}
+          <ConjugationBlock conj={conj} />
           {!ex && !conj && (
             <Text style={styles.emptyText}>Pas d'exemple ni de conjugaison pour ce mot.</Text>
           )}
@@ -385,7 +387,7 @@ export default function App() {
   const recognitionRef = useRef(null);
 
   // Liste combinee : mots de base + mots utilisateur
-  const ALL_WORDS = [...WORDS, ...userWords];
+  const ALL_WORDS = useMemo(() => [...WORDS, ...userWords], [userWords]);
 
   // Lookup exemple : userExamples surcharge EXAMPLES
   const getExample = (ru) => userExamples[ru] || EXAMPLES[ru] || null;
@@ -477,30 +479,25 @@ export default function App() {
 
     // --- iOS / Android natif ---
     if (!SpeechRecognitionModule) {
-      alert('Module non charge. Reinstalle la derniere version (v' + VERSION + ') de l app.');
+      alert('Reconnaissance vocale non disponible sur cet appareil.');
       return;
     }
 
     const ESR = SpeechRecognitionModule.ExpoSpeechRecognitionModule || SpeechRecognitionModule.default || SpeechRecognitionModule;
     const addListener = SpeechRecognitionModule.addSpeechRecognitionListener || (ESR && ESR.addListener && ESR.addListener.bind(ESR));
 
-    if (!ESR || typeof ESR.start !== 'function') {
-      alert('API speech recognition introuvable. Cle disponibles : ' + Object.keys(SpeechRecognitionModule).join(', '));
-      return;
-    }
-    if (typeof addListener !== 'function') {
-      alert('addListener introuvable. Cles : ' + Object.keys(SpeechRecognitionModule).join(', '));
+    if (!ESR || typeof ESR.start !== 'function' || typeof addListener !== 'function') {
+      alert('Reconnaissance vocale non disponible sur cet appareil.');
       return;
     }
 
     try {
-      let perm = { granted: true };
       if (typeof ESR.requestPermissionsAsync === 'function') {
-        perm = await ESR.requestPermissionsAsync();
-      }
-      if (perm && perm.granted === false) {
-        alert('Permission refusee. Active micro + dictee dans Reglages > Sendy.');
-        return;
+        const perm = await ESR.requestPermissionsAsync();
+        if (perm && perm.granted === false) {
+          alert('Permission refusee. Active micro + dictee dans Reglages > Sendy.');
+          return;
+        }
       }
 
       const subs = [];
@@ -510,31 +507,19 @@ export default function App() {
         setListening(null);
       };
 
-      // Diagnostic : on capture TOUS les events
-      let debugLog = [];
-      const events = ['result', 'end', 'error', 'start', 'speechstart', 'speechend', 'audiostart', 'audioend', 'nomatch'];
-      events.forEach((name) => {
-        try {
-          subs.push(addListener(name, (event) => {
-            const summary = name + ': ' + (event ? JSON.stringify(event).slice(0, 150) : 'no event');
-            debugLog.push(summary);
-            if (name === 'result' && event && event.results && event.results.length) {
-              const transcripts = event.results.map((r) => r.transcript || r);
-              handleResults(lang, transcripts);
-            }
-            if (name === 'error') {
-              cleanup();
-              alert('LOG:\n' + debugLog.join('\n'));
-            }
-            if (name === 'end') {
-              cleanup();
-              if (debugLog.filter((l) => l.startsWith('result')).length === 0) {
-                alert('Aucun result event recu. LOG:\n' + debugLog.join('\n'));
-              }
-            }
-          }));
-        } catch (e) {}
-      });
+      subs.push(addListener('result', (event) => {
+        if (event && event.results && event.results.length) {
+          handleResults(lang, event.results.map((r) => r.transcript || r));
+        }
+      }));
+      subs.push(addListener('end', cleanup));
+      subs.push(addListener('error', (event) => {
+        cleanup();
+        const code = event && (event.error || event.code);
+        if (code !== 'no-speech' && code !== 'aborted') {
+          alert('Erreur reconnaissance : ' + (event && (event.message || event.error) || 'inconnue'));
+        }
+      }));
 
       setListening(lang);
       ESR.start({
@@ -542,12 +527,10 @@ export default function App() {
         interimResults: false,
         maxAlternatives: 5,
         continuous: false,
-        requiresOnDeviceRecognition: false,
-        addsPunctuation: false,
       });
     } catch (e) {
       setListening(null);
-      alert('Exception : ' + (e && e.message ? e.message : String(e)));
+      alert('Erreur : ' + (e && e.message ? e.message : String(e)));
     }
   };
 
@@ -709,6 +692,13 @@ export default function App() {
     return words[Math.floor(Math.random() * words.length)];
   }, []);
 
+  // Compose le corps d'une notification (traduction + exemple + tag verbe)
+  const formatNotifBody = (word, ex, conj) => {
+    let body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
+    if (conj) body += `\n\n(verbe - ouvre l'app pour la conjugaison)`;
+    return body;
+  };
+
   // --- Notifications natives (iOS/Android) ---
   const scheduleNativeNotifications = useCallback(async (minutes, words) => {
     if (!Notifications || words.length === 0) return;
@@ -720,12 +710,10 @@ export default function App() {
       const word = words[Math.floor(Math.random() * words.length)];
       const ex = getExample(word.ru);
       const conj = CONJUGATIONS[word.ru];
-      let body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
-      if (conj) body += `\n\n(verbe - ouvre l'app pour la conjugaison)`;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: word.ru,
-          body,
+          body: formatNotifBody(word, ex, conj),
           data: { ru: word.ru, fr: word.fr, exRu: ex ? ex.ru : null, exFr: ex ? ex.fr : null },
           sound: true,
         },
@@ -736,18 +724,18 @@ export default function App() {
         },
       });
     }
-  }, []);
+  }, [userExamples]);
 
   // --- Notifications web (navigateur) ---
   const sendWebNotification = useCallback((word) => {
     if (Platform.OS !== 'web') return;
     const ex = getExample(word.ru);
-    const body = ex ? `${word.fr}\n\n${ex.ru}\n${ex.fr}` : word.fr;
+    const conj = CONJUGATIONS[word.ru];
     if ('Notification' in window && window.Notification.permission === 'granted') {
-      new window.Notification(word.ru, { body });
+      new window.Notification(word.ru, { body: formatNotifBody(word, ex, conj) });
     }
     setNextWord({ ...word, ex });
-  }, []);
+  }, [userExamples]);
 
   const startWebTimer = useCallback((minutes, words) => {
     if (webTimerRef.current) clearInterval(webTimerRef.current);
@@ -808,7 +796,7 @@ export default function App() {
     return () => {
       if (Platform.OS === 'web') stopWebTimer();
     };
-  }, [enabled, interval, knownWords.length]);
+  }, [enabled, interval, knownWords.length, userWords.length, userExamples]);
 
   // Ecouter les notifications natives
   useEffect(() => {
@@ -966,7 +954,6 @@ export default function App() {
           {quizOptions.map((option, index) => {
             const isCorrect = option.ru === quizWord.ru;
             const showCorrect = quizFeedback && isCorrect;
-            const showWrong = quizFeedback === 'wrong' && quizFeedback !== null;
             return (
               <TouchableOpacity
                 key={index}
@@ -1191,42 +1178,20 @@ export default function App() {
           <Text style={styles.status}>{status}</Text>
 
           {/* Carte du dernier mot recu */}
-          {nextWord && (
+          {nextWord && (() => {
+            const ex = nextWord.ex || getExample(nextWord.ru);
+            return (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Dernier mot</Text>
               <Text style={styles.russian}>{nextWord.ru}</Text>
               <Text style={styles.french}>{nextWord.fr}</Text>
-              {(nextWord.ex || getExample(nextWord.ru)) && (
+              {ex && (
                 <View style={styles.exampleBox}>
-                  <Text style={styles.exampleRu}>{(nextWord.ex || getExample(nextWord.ru)).ru}</Text>
-                  <Text style={styles.exampleFr}>{(nextWord.ex || getExample(nextWord.ru)).fr}</Text>
+                  <Text style={styles.exampleRu}>{ex.ru}</Text>
+                  <Text style={styles.exampleFr}>{ex.fr}</Text>
                 </View>
               )}
-              {CONJUGATIONS[nextWord.ru] && (() => {
-                const c = CONJUGATIONS[nextWord.ru];
-                const forms = c.present || c.future;
-                const tenseLabel = c.present ? 'Present' : 'Futur (perfectif)';
-                const pronouns = ['я', 'ты', 'он/она', 'мы', 'вы', 'они'];
-                const pastLabels = ['il', 'elle', 'ils/elles'];
-                return (
-                  <View style={styles.conjBox}>
-                    <Text style={styles.conjTitle}>Conjugaison</Text>
-                    <Text style={styles.conjInf}>infinitif : {c.inf} ({c.aspect === 'perfective' ? 'perfectif' : 'imperfectif'})</Text>
-                    <Text style={styles.conjSubtitle}>{tenseLabel}</Text>
-                    {pronouns.map((p, i) => (
-                      <Text key={p} style={styles.conjLine}>
-                        <Text style={styles.conjPron}>{p}</Text>{'  '}{forms[i]}
-                      </Text>
-                    ))}
-                    <Text style={styles.conjSubtitle}>Passe</Text>
-                    {pastLabels.map((p, i) => (
-                      <Text key={p} style={styles.conjLine}>
-                        <Text style={styles.conjPron}>{p}</Text>{'  '}{c.past[i]}
-                      </Text>
-                    ))}
-                  </View>
-                );
-              })()}
+              <ConjugationBlock conj={CONJUGATIONS[nextWord.ru]} />
               <View style={styles.cardBtns}>
                 <TouchableOpacity
                   style={styles.listenBtn}
@@ -1244,7 +1209,8 @@ export default function App() {
                 )}
               </View>
             </View>
-          )}
+            );
+          })()}
         </ScrollView>
       )}
 
