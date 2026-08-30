@@ -275,7 +275,7 @@ const CONJUGATIONS = {
   },
 };
 
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 const PRESETS = [5, 10, 15, 30, 60, 120];
 const STORAGE_KEY = 'sendy_known_words';
 const STORAGE_ENABLED = 'sendy_enabled';
@@ -348,6 +348,7 @@ export default function App() {
   const [knownWords, setKnownWords] = useState([]);
   const [showKnown, setShowKnown] = useState(false);
   const [expandedWord, setExpandedWord] = useState(null);
+  const [sortOrder, setSortOrder] = useState('default'); // 'default' | 'ru' | 'fr'
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState('words'); // 'words' | 'quiz' | 'add' | 'settings'
   const [quizWord, setQuizWord] = useState(null);
@@ -667,6 +668,16 @@ export default function App() {
   }, [interval]);
 
   const activeWords = ALL_WORDS.filter((w) => !knownWords.includes(w.ru));
+
+  const sortWords = (arr) => {
+    if (sortOrder === 'ru') {
+      return [...arr].sort((a, b) => a.ru.localeCompare(b.ru, 'ru'));
+    }
+    if (sortOrder === 'fr') {
+      return [...arr].sort((a, b) => a.fr.localeCompare(b.fr, 'fr'));
+    }
+    return arr;
+  };
 
   const markAsKnown = (ruWord) => {
     if (!knownWords.includes(ruWord)) {
@@ -1243,10 +1254,33 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* Barre de tri */}
+      <View style={styles.sortRow}>
+        <Text style={styles.sortLabel}>Tri :</Text>
+        <TouchableOpacity
+          style={[styles.sortBtn, sortOrder === 'default' && styles.sortBtnActive]}
+          onPress={() => setSortOrder('default')}
+        >
+          <Text style={[styles.sortBtnText, sortOrder === 'default' && styles.sortBtnTextActive]}>Defaut</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortBtn, sortOrder === 'ru' && styles.sortBtnActive]}
+          onPress={() => setSortOrder('ru')}
+        >
+          <Text style={[styles.sortBtnText, sortOrder === 'ru' && styles.sortBtnTextActive]}>A-Z RU</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortBtn, sortOrder === 'fr' && styles.sortBtnActive]}
+          onPress={() => setSortOrder('fr')}
+        >
+          <Text style={[styles.sortBtnText, sortOrder === 'fr' && styles.sortBtnTextActive]}>A-Z FR</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Liste des mots */}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={true}>
         {!showKnown ? (
-          activeWords.map((word, index) => (
+          sortWords(activeWords).map((word, index) => (
             <WordRow
               key={index}
               word={word}
@@ -1262,7 +1296,7 @@ export default function App() {
           knownWords.length === 0 ? (
             <Text style={styles.emptyText}>Aucun mot connu pour l'instant</Text>
           ) : (
-            ALL_WORDS.filter((w) => knownWords.includes(w.ru)).map((word, index) => (
+            sortWords(ALL_WORDS.filter((w) => knownWords.includes(w.ru))).map((word, index) => (
               <WordRow
                 key={index}
                 word={word}
@@ -1429,6 +1463,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#16c79a',
     marginBottom: 12,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  sortLabel: {
+    color: '#888',
+    fontSize: 13,
+    marginRight: 4,
+  },
+  sortBtn: {
+    backgroundColor: '#16213e',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  sortBtnActive: {
+    backgroundColor: '#e94560',
+    borderColor: '#e94560',
+  },
+  sortBtnText: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  sortBtnTextActive: {
+    color: '#ffffff',
   },
   wordCard: {
     marginBottom: 4,
